@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">GPS Pilot</string>
+    <string name="error_occurred">Error occurred</string>
 </resources>
