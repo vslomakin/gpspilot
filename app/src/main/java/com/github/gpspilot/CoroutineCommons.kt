@@ -1,8 +1,6 @@
 package com.github.gpspilot
 
-import androidx.core.app.ComponentActivity
 import androidx.lifecycle.*
-import d
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlin.coroutines.CoroutineContext
@@ -53,8 +51,7 @@ class LifecycleCoroutineContext(
     }
 }
 
-@Suppress("FunctionName")
-fun LifecycleOwner.LifecycleCoroutineContext(
+fun LifecycleOwner.lifecycleCoroutineContext(
     defDispatcher: CoroutineDispatcher = Dispatchers.Main
 ) : ReadOnlyProperty<Any, CoroutineContext> {
     return LifecycleCoroutineContext(lifecycle, defDispatcher)

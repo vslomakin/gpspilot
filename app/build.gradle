@@ -2,6 +2,10 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
+def keysPropertiesFile = rootProject.file("keys.properties");
+def keys = new Properties()
+keys.load(new FileInputStream(keysPropertiesFile))
+
 android {
     compileSdkVersion 28
     defaultConfig {
@@ -11,6 +15,8 @@ android {
         versionCode 1
         versionName "0.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        manifestPlaceholders = [googleMapKey:keys.google_map]
     }
     buildTypes {
         release {
@@ -35,6 +41,8 @@ dependencies {
 
     implementation "org.koin:koin-android:$versions.koin"
     implementation "org.koin:koin-android-viewmodel:$versions.koin"
+
+    implementation "com.google.android.gms:play-services-maps:16.0.0"
 
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'androidx.test:runner:1.1.0'

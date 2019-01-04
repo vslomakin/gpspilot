@@ -20,6 +20,21 @@
             </intent-filter>
         </activity>
 
+        <activity
+                android:name=".MapActivity"
+                android:theme="@style/NoActionBarTheme" />
+
+
+        <meta-data
+                android:name="com.google.android.geo.API_KEY"
+                android:value="${googleMapKey}" />
+
+        <uses-library
+                android:name="org.apache.http.legacy"
+                android:required="false">
+            <!-- https://developers.google.com/maps/documentation/android-sdk/config#specify_requirement_for_apache_http_legacy_library -->
+        </uses-library>
+
     </application>
 
 </manifest>

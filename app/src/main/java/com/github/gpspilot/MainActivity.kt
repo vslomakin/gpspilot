@@ -4,16 +4,18 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
 import d
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.*
+import kotlinx.coroutines.channels.BroadcastChannel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.channels.produce
 import org.koin.android.viewmodel.ext.android.viewModel
 import w
 import java.io.File
 import java.io.InputStream
-import java.lang.Exception
 import kotlin.coroutines.CoroutineContext
 
 private const val REQ_OPEN_FILE = 1
@@ -23,7 +25,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 
     private val vm by viewModel<MainActivityVM>()
 
-    override val coroutineContext: CoroutineContext by LifecycleCoroutineContext()
+    override val coroutineContext: CoroutineContext by lifecycleCoroutineContext()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,6 +40,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                 startActivityForResult(intent, REQ_OPEN_FILE)
             }
         }
+
+        handleUiRequests(vm.uiRequests())
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -68,16 +72,23 @@ class MainActivityVM(
     private val context: Context
 ) : CoroutineViewModel() {
 
+    private val uiReq = BroadcastChannel<UiRequest>(1)
+    fun uiRequests() = uiReq.openSubscription()
+
     private var routeFile: Deferred<File>?
             = context.defRouteFile?.takeIf { it.exists() }?.let(::CompletableDeferred)
 
 
+    // TODO: make this logic more idiomatic
     fun onViewReady(): ReceiveChannel<Unit> = produce {
-        if (routeFile == null) {
+        routeFile?.let { file ->
+            val req = UiRequest.StartActivity(
+                activity = MapActivity::class,
+                data = MapActivity.data(file.await())
+            )
+            uiReq.send(req)
+        } ?: run {
             send(Unit)
-        } else {
-            d { "File exist!" }
-            // TODO: process file
         }
     }
 
