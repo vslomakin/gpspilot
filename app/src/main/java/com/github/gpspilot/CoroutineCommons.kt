@@ -1,6 +1,8 @@
 package com.github.gpspilot
 
 import androidx.lifecycle.*
+import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.SupportMapFragment
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlin.coroutines.CoroutineContext
@@ -60,3 +62,11 @@ fun LifecycleOwner.lifecycleCoroutineContext(
 
 @UseExperimental(ExperimentalCoroutinesApi::class)
 fun BroadcastChannel<Unit>.offer() = offer(kotlin.Unit)
+
+
+suspend fun SupportMapFragment.awaitMap(): GoogleMap {
+    return CompletableDeferred<GoogleMap>().run {
+        getMapAsync { complete(it) }
+        await()
+    }
+}
