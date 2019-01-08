@@ -48,7 +48,7 @@ sealed class UiRequest {
         val requestCode: Int? = null
     ) : UiRequest()
 
-    object FinishActivityRequest : UiRequest()
+    object FinishActivity : UiRequest()
 
 
     data class StartActionMode(
@@ -122,7 +122,7 @@ fun <T> T.handleUiRequests(vos: ReceiveChannel<UiRequest>) where T : Activity, T
             is UiRequest.Toast -> showToast(it)
             is UiRequest.Dialog -> it.buildDialog(this@handleUiRequests).show()
             is UiRequest.StartActivity -> start(it.activity, it.requestCode, it.data)
-            is UiRequest.FinishActivityRequest -> finish()
+            is UiRequest.FinishActivity -> finish()
             is UiRequest.StartActionMode -> cabController.start(it)
             is UiRequest.StopActionMode -> cabController.stop()
         } }
