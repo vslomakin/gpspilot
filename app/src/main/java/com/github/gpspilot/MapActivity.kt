@@ -4,9 +4,11 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.github.gpspilot.UiRequest.Toast.Length
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.PolylineOptions
 import d
 import kotlinx.coroutines.CoroutineScope
@@ -34,9 +36,9 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
     }
 
 
-    private val vm by viewModel<MapVM>()
-
     override val coroutineContext: CoroutineContext by lifecycleCoroutineContext()
+
+    private val vm by viewModel<MapVM>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,15 +53,32 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
         handleUiRequests(vm.uiRequests())
         vm.run(routePath)
 
-
+        // TODO: try to setup map with route before initialization
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         launch {
-            val map = mapFragment.awaitMap()
-            vm.routes().consumeEach { route ->
-                val opt = PolylineOptions().apply { addAll(route) }
-                map.addPolyline(opt)
+            mapFragment.awaitMap().apply {
+                handleTracks()
+                handleWayPoints()
+            }
+        }
+    }
 
-                map.moveCamera(CameraUpdateFactory.newLatLngBounds(route.bounds(), 50)) // TODO: fix padding
+    private fun GoogleMap.handleTracks() = launch {
+        vm.routes().consumeEach { route ->
+            addPolyline {
+                addAll(route)
+            }
+            moveCamera(CameraUpdateFactory.newLatLngBounds(route.bounds(), 50)) // TODO: fix padding
+        }
+    }
+
+    private fun GoogleMap.handleWayPoints() = launch {
+        vm.wayPoints().consumeEach { wayPoints ->
+            wayPoints.forEach { point ->
+                addMarker {
+                    position(point.location)
+                    // TODO: add a name
+                }
             }
         }
     }
@@ -75,12 +94,16 @@ class MapVM(private val documentBuilderFactory: DocumentBuilderFactory) : Corout
     private val routes = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
     fun routes() = routes.openSubscription()
 
+    private val wayPoints = BroadcastChannel<List<Gpx.WayPoint>>(Channel.CONFLATED)
+    fun wayPoints() = wayPoints.openSubscription()
+
     fun run(routePath: String) {
         d { "Route path: $routePath" }
         val route = File(routePath)
         launch {
             documentBuilderFactory.parseGps(route)?.let { gpx ->
                 routes.send(gpx.track)
+                wayPoints.send(gpx.wayPoints)
             } ?: run {
                 uiReq.send(UiRequest.Toast(R.string.can_not_parse_route, Length.LONG))
                 uiReq.send(UiRequest.FinishActivity)
@@ -90,6 +113,14 @@ class MapVM(private val documentBuilderFactory: DocumentBuilderFactory) : Corout
 }
 
 
+private inline fun GoogleMap.addPolyline(setup: PolylineOptions.() -> Unit) {
+    val options = PolylineOptions().apply(setup)
+    addPolyline(options)
+}
+
+private inline fun GoogleMap.addMarker(setup: MarkerOptions.() -> Unit) {
+    val options = MarkerOptions().apply(setup)
+    addMarker(options)
+}
+
 private fun List<LatLng>.bounds() = LatLngBounds(first(), last())
-
-
