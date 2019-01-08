@@ -1,5 +1,6 @@
 package com.github.gpspilot
 
+import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.w3c.dom.Element
@@ -10,18 +11,18 @@ import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 
 
-data class Gpx(val wayPoints: List<WayPoint>, val track: List<TrackPoint>) {
-    data class WayPoint(val name: String?, val lat: Double, val lon: Double)
-    data class TrackPoint(val lat: Double, val lon: Double)
+data class Gpx(val wayPoints: List<WayPoint>, val track: List<LatLng>) {
+    data class WayPoint(val name: String?, val location: LatLng)
 }
 
 suspend fun DocumentBuilderFactory.parseGps(file: File): Gpx? = withContext(Dispatchers.IO) {
-    val builder = newDocumentBuilder()
+    // TODO: handle IO errors
+    val builder = newDocumentBuilder() // TODO: use shared instance?
     val document = builder.parse(file)
     val root = document.documentElement
 
     val wayPoints = root.elementsByName("wpt") { it.wayPoint() }
-    val trackPoints = root.elementsByName("trkpt") { it.trackPoint() }
+    val trackPoints = root.elementsByName("trkpt") { it.latLng() }
 
     if (wayPoints != null && trackPoints != null && trackPoints.isNotEmpty()) {
         Gpx(wayPoints, trackPoints)
@@ -35,18 +36,17 @@ private fun Node.wayPoint(): Gpx.WayPoint? {
     return if (lat != null && lon != null) {
         Gpx.WayPoint(
             name = childByName("name")?.textContent,
-            lat = lat,
-            lon = lon
+            location = LatLng(lat, lon)
         )
     } else null
 }
 
-private fun Node.trackPoint(): Gpx.TrackPoint? {
+private fun Node.latLng(): LatLng? {
     val attrs: NamedNodeMap? = attributes
     val lat = attrs?.doubleAttr("lat")
     val lon = attrs?.doubleAttr("lon")
     return if (lat != null && lon != null) {
-        Gpx.TrackPoint(lat = lat, lon = lon)
+        LatLng(lat, lon)
     } else null
 }
 
