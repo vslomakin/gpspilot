@@ -4,12 +4,14 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.content.DialogInterface
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
 import androidx.annotation.StringRes
+import androidx.core.app.ActivityCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ObsoleteCoroutinesApi
@@ -57,6 +59,8 @@ sealed class UiRequest {
     ) : UiRequest()
 
     object StopActionMode : UiRequest()
+
+    data class Permission(val permission: String) : UiRequest()
 }
 
 
@@ -113,18 +117,41 @@ private class CABController(private val activity: Activity) {
 }
 
 
-@UseExperimental(ObsoleteCoroutinesApi::class)
+private fun Activity.requestPermission(permission: String) {
+    ActivityCompat.requestPermissions(
+        this,
+        arrayOf(permission),
+        0
+    )
+}
+
+data class PermissionResult(val permission: String, val granted: Boolean)
+
+fun permissionResults(permissions: Array<out String>, granted: IntArray): List<PermissionResult> {
+    return List(permissions.size) { i ->
+        PermissionResult(
+            permission = permissions[i],
+            granted = granted[i] == PackageManager.PERMISSION_GRANTED
+        )
+    }
+}
+
+
+@ObsoleteCoroutinesApi
 fun <T> T.handleUiRequests(vos: ReceiveChannel<UiRequest>) where T : Activity, T : CoroutineScope {
     val cabController = CABController(this)
 
     launch(Dispatchers.Main) {
-        vos.consumeEach { when (it) {
-            is UiRequest.Toast -> showToast(it)
-            is UiRequest.Dialog -> it.buildDialog(this@handleUiRequests).show()
-            is UiRequest.StartActivity -> start(it.activity, it.requestCode, it.data)
-            is UiRequest.FinishActivity -> finish()
-            is UiRequest.StartActionMode -> cabController.start(it)
-            is UiRequest.StopActionMode -> cabController.stop()
-        } }
+        vos.consumeEach {
+            when (it) {
+                is UiRequest.Toast -> showToast(it)
+                is UiRequest.Dialog -> it.buildDialog(this@handleUiRequests).show()
+                is UiRequest.StartActivity -> start(it.activity, it.requestCode, it.data)
+                is UiRequest.FinishActivity -> finish()
+                is UiRequest.StartActionMode -> cabController.start(it)
+                is UiRequest.StopActionMode -> cabController.stop()
+                is UiRequest.Permission -> requestPermission(it.permission)
+            }.exhaustive
+        }
     }
 }
