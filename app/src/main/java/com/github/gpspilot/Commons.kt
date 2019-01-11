@@ -53,3 +53,38 @@ class LateinitValue<T> {
  * but it needed to compiler check that this `when` is exhaustive.
  */
 inline val Any.exhaustive get() = Unit
+
+
+/**
+ * Returns the first element position yielding the smallest value of the given function
+ * or `null` if there are no elements.
+ */
+inline fun <T, R : Comparable<R>> Sequence<T>.minPositionBy(selector: (T) -> R): Int? {
+    val iterator = iterator()
+    if (!iterator.hasNext()) return null
+    var minPosition = 0
+    var currentPosition = 0
+    var minValue = selector(iterator.next())
+    while (iterator.hasNext()) {
+        currentPosition++
+        val v = selector(iterator.next())
+        if (minValue > v) {
+            minValue = v
+            minPosition = currentPosition
+        }
+    }
+    return minPosition
+}
+
+
+/**
+ * Executes the given [block] and returns [Pair] of [block]'s result elapsed time in milliseconds.
+ * The function is useful, when you need to measure of some new value evaluation and use this
+ * value outside of [block] scope without `var` declaration.
+ *
+ * In feature, when contracts will be stable, this function become unnecessary.
+ */
+inline fun <T> measureTimeMillis(block: () -> T): Pair<T, Long> {
+    val start = System.currentTimeMillis()
+    return block() to (System.currentTimeMillis() - start)
+}

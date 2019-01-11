@@ -13,11 +13,10 @@ import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.LocationSource
 import com.google.android.gms.maps.LocationSource.OnLocationChangedListener
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
-import com.google.android.gms.maps.model.MarkerOptions
-import com.google.android.gms.maps.model.PolylineOptions
+import com.google.android.gms.maps.model.*
+import com.google.maps.android.SphericalUtil
 import d
+import i
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.Channel
@@ -26,6 +25,7 @@ import org.koin.android.viewmodel.ext.android.viewModel
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.absoluteValue
 
 
 private const val EXTRA_FNAME = "extra_fname"
@@ -65,6 +65,7 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
                 isMyLocationEnabled = true // TODO: hide 'my location' button
                 handleTracks()
                 handleWayPoints()
+                handleWPProjections()
                 handleLocationSources()
             }
         }
@@ -85,6 +86,19 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
                 addMarker {
                     position(point.location)
                     // TODO: add a name
+                }
+            }
+        }
+    }
+
+    private fun  GoogleMap.handleWPProjections() = launch {
+        val icDescriptor = BitmapDescriptorFactory.fromResource(R.drawable.ic_wp_projection)
+        vm.wpProjections().consumeEach { projections ->
+            projections.forEach { projection ->
+                addMarker {
+                    position(projection)
+                    anchor(0.5f, 0.5f)
+                    icon(icDescriptor)
                 }
             }
         }
@@ -124,6 +138,9 @@ class MapVM(
     private val wayPoints = BroadcastChannel<List<Gpx.WayPoint>>(Channel.CONFLATED)
     fun wayPoints() = wayPoints.openSubscription()
 
+    private val wpProjections = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
+    fun wpProjections() = wpProjections.openSubscription()
+
     private val locationSources = BroadcastChannel<LocationSource?>(Channel.CONFLATED)
     fun locationSources() = locationSources.openSubscription()
 
@@ -138,8 +155,13 @@ class MapVM(
     init {
         launch {
             route.await()?.let { gpx ->
+                val (projection, projectionTime) = measureTimeMillis {
+                    gpx.getWayPointsProjections()
+                }
+                i { "Projection calculated for $projectionTime ms." }
                 routes.send(gpx.track)
                 wayPoints.send(gpx.wayPoints)
+                wpProjections.send(projection)
             } ?: run {
                 uiReq.send(UiRequest.Toast(R.string.can_not_parse_route, Length.LONG))
                 uiReq.send(UiRequest.FinishActivity)
@@ -173,6 +195,7 @@ class MapVM(
 }
 
 
+
 private inline fun GoogleMap.addPolyline(setup: PolylineOptions.() -> Unit) {
     val options = PolylineOptions().apply(setup)
     addPolyline(options)
@@ -182,6 +205,8 @@ private inline fun GoogleMap.addMarker(setup: MarkerOptions.() -> Unit) {
     val options = MarkerOptions().apply(setup)
     addMarker(options)
 }
+
+
 
 private fun List<LatLng>.bounds() = LatLngBounds(first(), last())
 
@@ -225,3 +250,28 @@ private inline fun locationSource(
         onListenerChanged(null)
     }
 }
+
+
+/**
+ * Calculates projections of [Gpx.wayPoints] to [Gpx.track].
+ */
+private suspend fun Gpx.getWayPointsProjections(): List<LatLng> = withContext(Dispatchers.Default) {
+    var startPosition = 0 // Position from which traverse track list
+    val trackSeq = track.asSequence()
+    wayPoints.mapNotNull { wp ->
+        // Firstly we don't need to traverse points before projection of previous waypoint
+        val seq = trackSeq.drop(startPosition)
+        // Then find nearest point from remaining sequence
+        val nearest = seq.findNearestPosition(wp.location)?.let { it + startPosition }
+        nearest?.let {
+            startPosition = it // Assign found position to start traverse from here for next waypoint
+            track[it]
+        }
+    }
+}
+
+private fun Sequence<LatLng>.findNearestPosition(point: LatLng): Int? {
+    return minPositionBy { it.distanceTo(point).absoluteValue }
+}
+
+private fun LatLng.distanceTo(another: LatLng) = SphericalUtil.computeDistanceBetween(this, another)
