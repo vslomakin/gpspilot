@@ -3,6 +3,7 @@ package com.github.gpspilot
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Application
+import android.location.Location
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.github.gpspilot.UiRequest.Toast.Length
@@ -20,6 +21,7 @@ import i
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.consumeEach
 import org.koin.android.viewmodel.ext.android.viewModel
 import java.io.File
@@ -63,10 +65,10 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
         launch {
             mapFragment.awaitMap().apply {
                 isMyLocationEnabled = true // TODO: hide 'my location' button
+                setLocationSource(locationSource(vm.locations()))
                 handleTracks()
                 handleWayPoints()
                 handleWPProjections()
-                handleLocationSources()
             }
         }
     }
@@ -104,10 +106,6 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
         }
     }
 
-    private fun GoogleMap.handleLocationSources() = launch {
-        vm.locationSources().consumeEach { setLocationSource(it) }
-    }
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -141,10 +139,6 @@ class MapVM(
     private val wpProjections = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
     fun wpProjections() = wpProjections.openSubscription()
 
-    private val locationSources = BroadcastChannel<LocationSource?>(Channel.CONFLATED)
-    fun locationSources() = locationSources.openSubscription()
-
-
     private val routeFile = CompletableDeferred<File>()
 
     private val route: Deferred<Gpx?> = async {
@@ -170,15 +164,18 @@ class MapVM(
     }
 
     fun run(routePath: String) {
+        // TODO: do not run by second invocation
         d { "Route path: $routePath" }
         routeFile.complete(File(routePath))
         handleLocations()
     }
 
+
+    private val locationPermissionGranted = CompletableDeferred<Unit>()
+
     private fun handleLocations() {
         if (ctx.isPermissionGranted(LOCATION_PERMISSION)) {
-            val locationSource = locationSourceWithCurrentLocation(locationProviderClient)
-            locationSources.offer(locationSource)
+            locationPermissionGranted.complete()
         } else {
             uiReq.offer(UiRequest.Permission(LOCATION_PERMISSION))
         }
@@ -190,6 +187,22 @@ class MapVM(
             handleLocations()
         } else {
             uiReq.offer(UiRequest.Toast(R.string.location_permission_denied, Length.SHORT))
+        }
+    }
+
+    private val _locations = BroadcastChannel<Location>(Channel.CONFLATED)
+    fun locations() = _locations.openSubscription()
+
+    init {
+        launch(Dispatchers.Main) {
+            locationPermissionGranted.join()
+            d { "Location permission granted, requesting location update..." }
+            val channel = locationProviderClient.locations {
+                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+                interval = 500
+                fastestInterval = 50
+            }
+            channel.consumeEach { _locations.offer(it) }
         }
     }
 }
@@ -213,9 +226,7 @@ private fun List<LatLng>.bounds() = LatLngBounds(first(), last())
 
 @ObsoleteCoroutinesApi
 @ExperimentalCoroutinesApi
-private fun CoroutineScope.locationSourceWithCurrentLocation(
-    locationProviderClient: FusedLocationProviderClient
-): LocationSource {
+private fun CoroutineScope.locationSource(locations: ReceiveChannel<Location>): LocationSource {
     val listeners = BroadcastChannel<OnLocationChangedListener?>(Channel.CONFLATED)
     val locationSource = locationSource { listeners.offer(it) }
     // TODO: deactivate by stop
@@ -223,18 +234,16 @@ private fun CoroutineScope.locationSourceWithCurrentLocation(
     launch(Dispatchers.Main) {
         listeners.openSubscription().consumeSeparately {
             it?.let { listener ->
-                val locations = locationProviderClient.locations {
-                    priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-                    interval = 500
-                    fastestInterval = 50
+                locations.consumeEach { location ->
+                    listener.onLocationChanged(location)
                 }
-                locations.consumeEach { listener.onLocationChanged(it) }
             }
         }
     }
 
     return locationSource
 }
+
 
 /**
  * Inline helper to reduce noise.

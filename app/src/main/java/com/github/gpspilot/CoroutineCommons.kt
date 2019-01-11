@@ -64,6 +64,8 @@ fun LifecycleOwner.lifecycleCoroutineContext(
 @ExperimentalCoroutinesApi
 fun BroadcastChannel<Unit>.offer() = offer(Unit)
 
+fun CompletableDeferred<Unit>.complete() = complete(Unit)
+
 
 suspend fun SupportMapFragment.awaitMap(): GoogleMap {
     return CompletableDeferred<GoogleMap>().run {
