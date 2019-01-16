@@ -201,3 +201,6 @@ fun <T> ReceiveChannel<T>.append(
     consumeEach { send(it) }
     another.consumeEach { send(it) }
 }
+
+
+val infiniteDeferred: Deferred<Nothing> by lazy { CompletableDeferred<Nothing>() }

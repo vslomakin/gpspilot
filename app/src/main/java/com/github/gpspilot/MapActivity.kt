@@ -3,6 +3,7 @@ package com.github.gpspilot
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Application
+import android.graphics.Color
 import android.location.Location
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -15,7 +16,6 @@ import com.google.android.gms.maps.LocationSource
 import com.google.android.gms.maps.LocationSource.OnLocationChangedListener
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.*
-import com.google.maps.android.SphericalUtil
 import d
 import i
 import kotlinx.coroutines.*
@@ -27,7 +27,6 @@ import org.koin.android.viewmodel.ext.android.viewModel
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.coroutines.CoroutineContext
-import kotlin.math.absoluteValue
 
 
 private const val EXTRA_FNAME = "extra_fname"
@@ -67,18 +66,35 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
                 isMyLocationEnabled = true // TODO: hide 'my location' button
                 setLocationSource(locationSource(vm.locations()))
                 handleTracks()
+                handleCameraBounds()
                 handleWayPoints()
                 handleWPProjections()
             }
         }
     }
 
-    private fun GoogleMap.handleTracks() = launch {
-        vm.routes().consumeEach { route ->
-            addPolyline {
-                addAll(route)
+    private fun GoogleMap.handleTracks() {
+        handlePolylines(vm.passedTracks(), Color.GREEN)
+        handlePolylines(vm.remainingTracks(), Color.YELLOW)
+        handlePolylines(vm.unusedTracks(), Color.WHITE)
+    }
+
+    private fun GoogleMap.handlePolylines(polylines: ReceiveChannel<List<LatLng>>, color: Int) {
+        launch {
+            var addedPolyline: Polyline? = null
+            polylines.consumeEach { track ->
+                addedPolyline?.remove()
+                addedPolyline = addPolyline {
+                    addAll(track)
+                    color(color)
+                }
             }
-            moveCamera(CameraUpdateFactory.newLatLngBounds(route.bounds(), 50)) // TODO: fix padding
+        }
+    }
+
+    private fun GoogleMap.handleCameraBounds() = launch {
+        vm.cameraBounds().consumeEach { bounds ->
+            moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 50)) // TODO: fix padding
         }
     }
 
@@ -119,6 +135,8 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
 
 private const val LOCATION_PERMISSION = Manifest.permission.ACCESS_FINE_LOCATION
 
+private const val MIN_DISTANCE = 100
+
 @ObsoleteCoroutinesApi
 @ExperimentalCoroutinesApi
 class MapVM(
@@ -130,14 +148,23 @@ class MapVM(
     private val uiReq = BroadcastChannel<UiRequest>(1)
     fun uiRequests() = uiReq.openSubscription()
 
-    private val routes = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
-    fun routes() = routes.openSubscription()
+    private val passedTracks = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
+    fun passedTracks() = passedTracks.openSubscription()
+
+    private val remainingTracks = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
+    fun remainingTracks() = remainingTracks.openSubscription()
+
+    private val unusedTracks = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
+    fun unusedTracks() = unusedTracks.openSubscription()
 
     private val wayPoints = BroadcastChannel<List<Gpx.WayPoint>>(Channel.CONFLATED)
     fun wayPoints() = wayPoints.openSubscription()
 
     private val wpProjections = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
     fun wpProjections() = wpProjections.openSubscription()
+
+    private val cameraBounds = BroadcastChannel<LatLngBounds>(Channel.CONFLATED)
+    fun cameraBounds() = cameraBounds.openSubscription()
 
     private val routeFile = CompletableDeferred<File>()
 
@@ -153,9 +180,10 @@ class MapVM(
                     gpx.getWayPointsProjections()
                 }
                 i { "Projection calculated for $projectionTime ms." }
-                routes.send(gpx.track)
+                remainingTracks.send(gpx.track)
                 wayPoints.send(gpx.wayPoints)
                 wpProjections.send(projection)
+                cameraBounds.send(gpx.track.bounds())
             } ?: run {
                 uiReq.send(UiRequest.Toast(R.string.can_not_parse_route, Length.LONG))
                 uiReq.send(UiRequest.FinishActivity)
@@ -194,6 +222,7 @@ class MapVM(
     fun locations() = _locations.openSubscription()
 
     init {
+        // Handle device location
         launch(Dispatchers.Main) {
             locationPermissionGranted.join()
             d { "Location permission granted, requesting location update..." }
@@ -204,19 +233,41 @@ class MapVM(
             }
             channel.consumeEach { _locations.offer(it) }
         }
+
+        // Handle track progress
+        launch {
+            val route = this@MapVM.route.awaitNotEmptyTrack()
+            val track = route.track
+            var previousPosition: Int? = null
+            locations().consumeEach { location ->
+                // Track are never empty, so result can't be null, we can safely cast
+                val position = track.findNearestPosition(location)!!
+                if (position != previousPosition) {
+                    val distance = track[position].distanceTo(location)
+                    i { "Current point: $position, distance: $distance" }
+                    if (distance <= MIN_DISTANCE) {
+                        val passed = track.take(position + 1)
+                        passedTracks.send(passed)
+                        val remaining = track.drop(position)
+                        remainingTracks.send(remaining)
+                    }
+                    previousPosition = position
+                }
+            }
+        }
     }
 }
 
 
 
-private inline fun GoogleMap.addPolyline(setup: PolylineOptions.() -> Unit) {
+private inline fun GoogleMap.addPolyline(setup: PolylineOptions.() -> Unit): Polyline {
     val options = PolylineOptions().apply(setup)
-    addPolyline(options)
+    return addPolyline(options)
 }
 
-private inline fun GoogleMap.addMarker(setup: MarkerOptions.() -> Unit) {
+private inline fun GoogleMap.addMarker(setup: MarkerOptions.() -> Unit): Marker {
     val options = MarkerOptions().apply(setup)
-    addMarker(options)
+    return addMarker(options)
 }
 
 
@@ -279,8 +330,7 @@ private suspend fun Gpx.getWayPointsProjections(): List<LatLng> = withContext(Di
     }
 }
 
-private fun Sequence<LatLng>.findNearestPosition(point: LatLng): Int? {
-    return minPositionBy { it.distanceTo(point).absoluteValue }
-}
 
-private fun LatLng.distanceTo(another: LatLng) = SphericalUtil.computeDistanceBetween(this, another)
+private suspend fun Deferred<Gpx?>.awaitNotEmptyTrack(): Gpx {
+    return await()?.takeIf { it.track.isNotEmpty() } ?: infiniteDeferred.await()
+}

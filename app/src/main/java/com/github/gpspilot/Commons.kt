@@ -76,6 +76,27 @@ inline fun <T, R : Comparable<R>> Sequence<T>.minPositionBy(selector: (T) -> R):
     return minPosition
 }
 
+/**
+ * Returns the first element position yielding the smallest value of the given function
+ * or `null` if there are no elements.
+ */
+inline fun <T, R : Comparable<R>> Iterable<T>.minPositionBy(selector: (T) -> R): Int? {
+    val iterator = iterator()
+    if (!iterator.hasNext()) return null
+    var minPosition = 0
+    var currentPosition = 0
+    var minValue = selector(iterator.next())
+    while (iterator.hasNext()) {
+        currentPosition++
+        val v = selector(iterator.next())
+        if (minValue > v) {
+            minValue = v
+            minPosition = currentPosition
+        }
+    }
+    return minPosition
+}
+
 
 /**
  * Executes the given [block] and returns [Pair] of [block]'s result elapsed time in milliseconds.
