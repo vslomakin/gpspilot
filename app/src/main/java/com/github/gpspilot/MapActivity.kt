@@ -17,6 +17,7 @@ import com.google.android.gms.maps.LocationSource.OnLocationChangedListener
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.*
 import d
+import e
 import i
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BroadcastChannel
@@ -68,9 +69,9 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
                 handleTracks()
                 handleCameraBounds()
                 handleWayPoints()
-                handleWPProjections()
 
                 setOnMapLongClickListener(vm::onMapLongClick)
+                setOnMarkerClickListener(::onMarkerClick)
             }
         }
     }
@@ -100,25 +101,50 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
         }
     }
 
-    private fun GoogleMap.handleWayPoints() = launch {
-        vm.wayPoints().consumeEach { wayPoints ->
-            wayPoints.forEach { point ->
-                addMarker {
-                    position(point.location)
-                    // TODO: add a name
-                }
+    private fun GoogleMap.handleWayPoints() {
+        // Waypoint projections
+        val projectionIcon = BitmapDescriptorFactory.fromResource(R.drawable.ic_wp_projection)
+        handleMarkers(
+            markerLists = vm.wpProjections(),
+            setupOptions = { projection ->
+                position(projection)
+                anchor(0.5f, 0.5f)
+                icon(projectionIcon)
             }
-        }
+        )
+
+        // Waypoints
+        handleMarkers(
+            markerLists = vm.wayPoints(),
+            setupOptions = { point ->
+                position(point.location)
+                tint(point.color)
+                // TODO: add a name
+            },
+            setupMarker = { index, marker ->
+                marker.wayPointNumber = index
+            }
+        )
     }
 
-    private fun  GoogleMap.handleWPProjections() = launch {
-        val icDescriptor = BitmapDescriptorFactory.fromResource(R.drawable.ic_wp_projection)
-        vm.wpProjections().consumeEach { projections ->
-            projections.forEach { projection ->
-                addMarker {
-                    position(projection)
-                    anchor(0.5f, 0.5f)
-                    icon(icDescriptor)
+    private fun <T> GoogleMap.handleMarkers(
+        markerLists: ReceiveChannel<Collection<T>>,
+        setupOptions: MarkerOptions.(marker: T) -> Unit,
+        setupMarker: ((index: Int, marker: Marker) -> Unit)? = null
+    ) {
+        launch {
+            var addedMarkers: List<Marker>? = null
+            markerLists.consumeEach { markers ->
+                // Remove already added markers
+                addedMarkers?.forEach { it.remove() }
+
+                // Add new markers
+                addedMarkers = markers.mapIndexed { index, marker ->
+                    val newMarker = addMarker {
+                        setupOptions(marker)
+                    }
+                    setupMarker?.invoke(index, newMarker)
+                    newMarker
                 }
             }
         }
@@ -131,6 +157,11 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
     ) {
         vm.onPermissionResult(permissionResults(permissions, grantResults))
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
+
+    private fun onMarkerClick(marker: Marker): Boolean {
+        marker.wayPointNumber?.let(vm::onClickMarker)
+        return true
     }
 }
 
@@ -147,8 +178,13 @@ class MapVM(
     private val locationProviderClient: FusedLocationProviderClient
 ) : CoroutineViewModel() {
 
+    data class WayPoint(val location: LatLng, val type: Type) {
+        enum class Type { PASSED, TARGET, REMAINING }
+    }
+
     private val uiReq = BroadcastChannel<UiRequest>(1)
     fun uiRequests() = uiReq.openSubscription()
+
 
     private val passedTracks = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
     fun passedTracks() = passedTracks.openSubscription()
@@ -159,11 +195,17 @@ class MapVM(
     private val unusedTracks = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
     fun unusedTracks() = unusedTracks.openSubscription()
 
-    private val wayPoints = BroadcastChannel<List<Gpx.WayPoint>>(Channel.CONFLATED)
+
+    private val targetWayPoints = BroadcastChannel<Int?>(Channel.CONFLATED)
+    private val targetTrackPoint = BroadcastChannel<LatLng>(Channel.CONFLATED)
+
+    private val wayPoints = BroadcastChannel<List<WayPoint>>(Channel.CONFLATED)
     fun wayPoints() = wayPoints.openSubscription()
 
-    private val wpProjections = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
+    private val wpProjections = BroadcastChannel<Collection<LatLng>>(Channel.CONFLATED)
     fun wpProjections() = wpProjections.openSubscription()
+
+
 
     private val cameraBounds = BroadcastChannel<LatLngBounds>(Channel.CONFLATED)
     fun cameraBounds() = cameraBounds.openSubscription()
@@ -178,17 +220,50 @@ class MapVM(
     init {
         launch {
             route.await()?.let { gpx ->
-                val (projection, projectionTime) = measureTimeMillis {
-                    gpx.getWayPointsProjections()
-                }
-                i { "Projection calculated for $projectionTime ms." }
                 remainingTracks.send(gpx.track)
-                wayPoints.send(gpx.wayPoints)
-                wpProjections.send(projection)
                 cameraBounds.send(gpx.track.bounds())
             } ?: run {
                 uiReq.send(UiRequest.Toast(R.string.can_not_parse_route, Length.LONG))
                 uiReq.send(UiRequest.FinishActivity)
+                // TODO: send Crashlytics error
+            }
+        }
+
+        // Handle waypoints
+        launch {
+            val route = route.await()
+            val wayPoints = route?.wayPoints
+            if (wayPoints == null || wayPoints.isEmpty()) return@launch
+
+            val (projection, projectionTime) = measureTimeMillis {
+                route.getWayPointsProjections()
+            }
+            i { "Projection calculated for $projectionTime ms." }
+
+            wpProjections.send(projection)
+
+            // The last waypoint is target by default
+            val positions = targetWayPoints.openSubscription().startWith(coroutineContext, wayPoints.lastPosition)
+
+            positions.consumeEach { targetPos ->
+                i { "Waypoint target position: $targetPos (of ${wayPoints.size})" }
+
+                targetPos?.let { pos ->
+                    if (pos in projection.indices) {
+                        targetTrackPoint.send(projection[pos])
+                    } else {
+                        e { "Can't find projection point for target $pos position (${projection.size})." }
+                    }
+                }
+
+                val result = wayPoints.mapIndexed { index, wayPoint ->
+                    WayPoint(
+                        location = wayPoint.location,
+                        // TODO: include passed objects
+                        type = if (index == targetPos) WayPoint.Type.TARGET else WayPoint.Type.REMAINING
+                    )
+                }
+                this@MapVM.wayPoints.send(result)
             }
         }
     }
@@ -270,8 +345,7 @@ class MapVM(
             val track = route.awaitNotEmptyTrack().track
             consumeLatest(
                 channel1 = currentTrackPositions.openSubscription(),
-                // Start with null for initial setup
-                channel2 = longClicks.openSubscription().startWith(coroutineContext, null)
+                channel2 = targetTrackPoint.openSubscription()
             ) { currentTrackPosition, clicked ->
                 val targetPosition = track.indexOrNull(clicked) ?: track.lastPosition
                 d { "Target position: $targetPosition (of ${track.size})" }
@@ -286,10 +360,13 @@ class MapVM(
     }
 
 
-    private val longClicks = BroadcastChannel<LatLng>(Channel.CONFLATED)
-
     fun onMapLongClick(point: LatLng) {
-        longClicks.offer(point)
+        // TODO: improve click position determination
+        targetTrackPoint.offer(point)
+    }
+
+    fun onClickMarker(number: Int) {
+        targetWayPoints.offer(number)
     }
 }
 
@@ -304,6 +381,16 @@ private inline fun GoogleMap.addMarker(setup: MarkerOptions.() -> Unit): Marker 
     val options = MarkerOptions().apply(setup)
     return addMarker(options)
 }
+
+private fun MarkerOptions.tint(color: Float) {
+    icon(BitmapDescriptorFactory.defaultMarker(color))
+}
+
+private inline var Marker.wayPointNumber: Int?
+    set(value) {
+        tag = value
+    }
+    get() = tag as? Int
 
 
 
@@ -368,4 +455,12 @@ private suspend fun Gpx.getWayPointsProjections(): List<LatLng> = withContext(Di
 
 private suspend fun Deferred<Gpx?>.awaitNotEmptyTrack(): Gpx {
     return await()?.takeIf { it.track.isNotEmpty() } ?: infiniteDeferred.await()
+}
+
+@ObsoleteCoroutinesApi
+@ExperimentalCoroutinesApi
+private val MapVM.WayPoint.color: Float get() = when (type) {
+    MapVM.WayPoint.Type.PASSED -> BitmapDescriptorFactory.HUE_GREEN
+    MapVM.WayPoint.Type.TARGET -> BitmapDescriptorFactory.HUE_YELLOW
+    MapVM.WayPoint.Type.REMAINING -> BitmapDescriptorFactory.HUE_ORANGE // TODO: should be white
 }
