@@ -109,3 +109,21 @@ inline fun <T> measureTimeMillis(block: () -> T): Pair<T, Long> {
     val start = System.currentTimeMillis()
     return block() to (System.currentTimeMillis() - start)
 }
+
+
+inline val List<*>.lastPosition: Int get() = size - 1
+
+fun <T> List<T>.indexOrNull(item: T): Int? = indexOf(item).takeIf { it >= 0 }
+
+
+inline fun <T1, T2> ifAllInitialized(
+    value1: LateinitValue<T1>,
+    value2: LateinitValue<T2>,
+    action: (T1, T2) -> Unit
+) {
+    value1.ifInitialized { v1 ->
+        value2.ifInitialized { v2 ->
+            action(v1, v2)
+        }
+    }
+}

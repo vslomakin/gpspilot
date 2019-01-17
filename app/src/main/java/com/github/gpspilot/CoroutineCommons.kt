@@ -3,8 +3,10 @@ package com.github.gpspilot
 import androidx.lifecycle.*
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
+import d
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.*
+import kotlinx.coroutines.selects.select
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.coroutineContext
 import kotlin.properties.ReadOnlyProperty
@@ -187,7 +189,7 @@ private suspend fun Lifecycle.states(
 
 
 @ExperimentalCoroutinesApi
-fun <T> T.asChannel(ctx: CoroutineContext = Dispatchers.Unconfined): ReceiveChannel<T> = GlobalScope.produce(ctx) {
+fun <T> T.asChannel(ctx: CoroutineContext): ReceiveChannel<T> = GlobalScope.produce(ctx) {
     send(this@asChannel)
 }
 
@@ -196,11 +198,46 @@ fun <T> T.asChannel(ctx: CoroutineContext = Dispatchers.Unconfined): ReceiveChan
 fun <T> ReceiveChannel<T>.append(
     another: ReceiveChannel<T>,
     capacity: Int = 0,
-    ctx: CoroutineContext = Dispatchers.Unconfined
+    ctx: CoroutineContext
 ): ReceiveChannel<T> = GlobalScope.produce(ctx, capacity) {
     consumeEach { send(it) }
     another.consumeEach { send(it) }
 }
 
+@ExperimentalCoroutinesApi
+@ObsoleteCoroutinesApi
+fun <T> ReceiveChannel<T>.startWith(
+    ctx: CoroutineContext,
+    startItem: T,
+    capacity: Int = 0
+): ReceiveChannel<T> = GlobalScope.produce(ctx, capacity) {
+    send(startItem)
+    consumeEach { send(it) }
+}
+
 
 val infiniteDeferred: Deferred<Nothing> by lazy { CompletableDeferred<Nothing>() }
+
+
+@ExperimentalCoroutinesApi
+suspend fun <T1, T2> consumeLatest(
+    channel1: ReceiveChannel<T1>,
+    channel2: ReceiveChannel<T2>,
+    consumer: suspend (T1, T2) -> Unit
+) {
+    fun isClosed() = channel1.isClosedForReceive || channel2.isClosedForReceive
+    val value1 = LateinitValue<T1>()
+    val value2 = LateinitValue<T2>()
+    try {
+        while (!isClosed()) {
+            select<Unit> {
+                channel1.onReceive { value1.value = it }
+                channel2.onReceive { value2.value = it }
+            }
+
+            ifAllInitialized(value1, value2) { v1, v2 -> consumer(v1, v2) }
+        }
+    } catch (e: ClosedReceiveChannelException) {
+        d { "One of channels has been closed." }
+    }
+}

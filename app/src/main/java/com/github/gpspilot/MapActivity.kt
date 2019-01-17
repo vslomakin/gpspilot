@@ -69,6 +69,8 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
                 handleCameraBounds()
                 handleWayPoints()
                 handleWPProjections()
+
+                setOnMapLongClickListener(vm::onMapLongClick)
             }
         }
     }
@@ -221,6 +223,8 @@ class MapVM(
     private val _locations = BroadcastChannel<Location>(Channel.CONFLATED)
     fun locations() = _locations.openSubscription()
 
+    private val currentTrackPositions = BroadcastChannel<Int>(Channel.CONFLATED)
+
     init {
         // Handle device location
         launch(Dispatchers.Main) {
@@ -236,25 +240,56 @@ class MapVM(
 
         // Handle track progress
         launch {
-            val route = this@MapVM.route.awaitNotEmptyTrack()
-            val track = route.track
+            val track = route.awaitNotEmptyTrack().track
             var previousPosition: Int? = null
             locations().consumeEach { location ->
-                // Track are never empty, so result can't be null, we can safely cast
+                // Track is never empty, so result can't be null, we can safely cast
                 val position = track.findNearestPosition(location)!!
                 if (position != previousPosition) {
                     val distance = track[position].distanceTo(location)
                     i { "Current point: $position, distance: $distance" }
                     if (distance <= MIN_DISTANCE) {
-                        val passed = track.take(position + 1)
-                        passedTracks.send(passed)
-                        val remaining = track.drop(position)
-                        remainingTracks.send(remaining)
+                        currentTrackPositions.send(position)
                     }
                     previousPosition = position
                 }
             }
         }
+
+        // Handle passed track
+        launch {
+            val track = route.awaitNotEmptyTrack().track
+            currentTrackPositions.consumeEach { position ->
+                val passed = track.take(position + 1)
+                passedTracks.send(passed)
+            }
+        }
+
+        // Handle remaining track
+        launch {
+            val track = route.awaitNotEmptyTrack().track
+            consumeLatest(
+                channel1 = currentTrackPositions.openSubscription(),
+                // Start with null for initial setup
+                channel2 = longClicks.openSubscription().startWith(coroutineContext, null)
+            ) { currentTrackPosition, clicked ->
+                val targetPosition = track.indexOrNull(clicked) ?: track.lastPosition
+                d { "Target position: $targetPosition (of ${track.size})" }
+
+                val remaining = track.slice(currentTrackPosition..targetPosition)
+                remainingTracks.offer(remaining)
+
+                val unused = track.slice(targetPosition..track.lastPosition)
+                unusedTracks.offer(unused)
+            }
+        }
+    }
+
+
+    private val longClicks = BroadcastChannel<LatLng>(Channel.CONFLATED)
+
+    fun onMapLongClick(point: LatLng) {
+        longClicks.offer(point)
     }
 }
 
