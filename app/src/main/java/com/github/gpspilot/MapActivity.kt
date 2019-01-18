@@ -4,17 +4,15 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Application
 import android.graphics.Color
+import android.graphics.Point
 import android.location.Location
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.github.gpspilot.UiRequest.Toast.Length
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.LocationSource
+import com.google.android.gms.maps.*
 import com.google.android.gms.maps.LocationSource.OnLocationChangedListener
-import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.*
 import d
 import e
@@ -28,6 +26,7 @@ import org.koin.android.viewmodel.ext.android.viewModel
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.min
 import kotlin.system.measureTimeMillis
 
 
@@ -71,7 +70,7 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
                 handleCameraBounds()
                 handleWayPoints()
 
-                setOnMapLongClickListener(vm::onMapLongClick)
+                setOnMapLongClickListener { vm.onMapLongClick(it, projection) }
                 setOnMarkerClickListener(::onMarkerClick)
             }
         }
@@ -198,7 +197,7 @@ class MapVM(
 
 
     private val targetWayPoints = BroadcastChannel<Int?>(Channel.CONFLATED)
-    private val targetTrackPoint = BroadcastChannel<LatLng>(Channel.CONFLATED)
+    private val targetTrackPosition = BroadcastChannel<Int>(Channel.CONFLATED)
 
     private val wayPoints = BroadcastChannel<List<WayPoint>>(Channel.CONFLATED)
     fun wayPoints() = wayPoints.openSubscription()
@@ -253,10 +252,10 @@ class MapVM(
 
             consumeLatest(trackPosition, wpPositions) { trackPos, wpPos ->
                 wpPos?.let { pos ->
-                    if (pos in projection.indices) {
-                        targetTrackPoint.send(projection[pos])
+                    if (pos in projectionPositions.indices) {
+                        targetTrackPosition.send(projectionPositions[pos])
                     } else {
-                        e { "Wrong projection point position: $pos (projection count: ${projection.size})." }
+                        e { "Wrong projection point position: $pos (projection count: ${projectionPositions.size})." }
                     }
                 }
 
@@ -336,38 +335,59 @@ class MapVM(
             }
         }
 
-        // Handle passed track
-        launch {
-            val track = route.awaitNotEmptyTrack().track
-            currentTrackPositions.consumeEach { position ->
-                val passed = track.take(position + 1)
-                passedTracks.send(passed)
-            }
-        }
-
         // Handle remaining track
         launch {
             val track = route.awaitNotEmptyTrack().track
             consumeLatest(
                 channel1 = currentTrackPositions.openSubscription(),
-                channel2 = targetTrackPoint.openSubscription()
-            ) { currentTrackPosition, clicked ->
-                val targetPosition = track.indexOrNull(clicked) ?: track.lastPosition
-                d { "Target position: $targetPosition (of ${track.size})" }
+                channel2 = targetTrackPosition.openSubscription()
+            ) { currentPos, targetPos ->
+                i { "Positions: current - $currentPos, target - $targetPos (track: ${track.size})." }
+                val passedCount = (min(currentPos, targetPos)) + 1
+                passedTracks.send(track.take(passedCount))
 
-                val remaining = track.slice(currentTrackPosition..targetPosition)
+                val remaining = track.slice(currentPos..targetPos)
                 remainingTracks.offer(remaining)
 
-                val unused = track.slice(targetPosition..track.lastPosition)
+                val unused = track.slice(targetPos..track.lastPosition)
                 unusedTracks.offer(unused)
             }
         }
     }
 
 
-    fun onMapLongClick(point: LatLng) {
-        // TODO: improve click position determination
-        targetTrackPoint.offer(point)
+    private val longClicks = BroadcastChannel<Pair<LatLng, Projection>>(Channel.CONFLATED)
+
+    fun onMapLongClick(clickLocation: LatLng, projection: Projection) {
+        longClicks.offer(clickLocation to projection)
+    }
+
+    private val clickDistance = ctx.resources.getDimensionPixelSize(R.dimen.track_click_boundaries)
+
+    init {
+        launch {
+            val track = route.awaitNotEmptyTrack().track
+
+            longClicks.consumeEach { (clickLocation, projection) ->
+                // Track is never empty, so result can't be null, we can safely cast
+                val nearestPos = track.findNearestPosition(clickLocation)!!
+                val nearest = track[nearestPos]
+
+                lateinit var clickPoint: Point
+                lateinit var nearestPoint: Point
+                withContext(Dispatchers.Main) {
+                    clickPoint = projection.toScreenLocation(clickLocation)
+                    nearestPoint = projection.toScreenLocation(nearest)
+                }
+                val distancePx = clickPoint distanceTo nearestPoint
+                i { "Clicked on map: $clickPoint. Distance: ${distancePx}px (allowed ${clickDistance}px)." }
+                if (distancePx <= clickDistance) {
+                    targetWayPoints.send(null)
+                    targetTrackPosition.send(nearestPos)
+                    // TODO: show projection point
+                }
+            }
+        }
     }
 
     fun onClickMarker(number: Int) {

@@ -70,6 +70,13 @@ fun List<LatLng>.findNearestPosition(point: Location): Int? {
     return minPositionBy { it.distanceTo(point).absoluteValue }
 }
 
+/**
+ * Returns the first nearest to [point] point position or `null` if there are no elements.
+ */
+fun List<LatLng>.findNearestPosition(point: LatLng): Int? {
+    return minPositionBy { it.distanceTo(point).absoluteValue }
+}
+
 
 
 

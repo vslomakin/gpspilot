@@ -2,10 +2,13 @@ package com.github.gpspilot
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Point
 import androidx.core.content.ContextCompat
 import e
 import w
 import java.io.File
+import java.lang.Math.pow
+import kotlin.math.sqrt
 
 
 fun File.append(child: String): File = File(this, child)
@@ -118,4 +121,10 @@ inline fun <T1, T2> ifAllInitialized(
 
 fun <T> List<T>.getElements(positions: List<Int>): List<T> {
     return positions.map { get(it) }
+}
+
+infix fun Point.distanceTo(another: Point): Double {
+    val xDelta = pow(another.x.toDouble() - x.toDouble(), 2.0)
+    val yDelta = pow(another.y.toDouble() - y.toDouble(), 2.0)
+    return sqrt(xDelta + yDelta)
 }
