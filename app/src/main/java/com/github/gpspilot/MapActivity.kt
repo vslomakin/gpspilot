@@ -310,7 +310,7 @@ class MapVM(
                 interval = 500
                 fastestInterval = 50
             }
-            channel.consumeEach { _locations.offer(it) }
+            channel.consumeEach { _locations.send(it) }
         }
 
         // Handle track progress
@@ -320,13 +320,13 @@ class MapVM(
             locations().consumeEach { location ->
                 // Track is never empty, so result can't be null, we can safely cast
                 val position = track.findNearestPosition(location)!!
-                if (position != previousPosition) {
-                    val distance = track[position].distanceTo(location)
-                    i { "Current point: $position, distance: $distance" }
-                    if (distance <= MIN_DISTANCE) {
+                val distance = track[position].distanceTo(location)
+                i { "Current point: $position, distance: $distance" }
+                if (distance <= MIN_DISTANCE) {
+                    if (position != previousPosition) {
                         currentTrackPositions.send(position)
+                        previousPosition = position
                     }
-                    previousPosition = position
                 }
             }
         }
