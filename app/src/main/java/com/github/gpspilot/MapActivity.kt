@@ -321,9 +321,9 @@ class MapVM(
                 // Track is never empty, so result can't be null, we can safely cast
                 val position = track.findNearestPosition(location)!!
                 val distance = track[position].distanceTo(location)
-                i { "Current point: $position, distance: $distance" }
                 if (distance <= MIN_DISTANCE) {
                     if (position != previousPosition) {
+                        d { "Current point: $position, distance: $distance" }
                         currentTrackPositions.send(position)
                         previousPosition = position
                     }

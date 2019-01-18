@@ -107,7 +107,7 @@ suspend fun <T> ReceiveChannel<T>.consumeSeparately(
 @ObsoleteCoroutinesApi
 @ExperimentalCoroutinesApi
 fun <T> ReceiveChannel<T>.distinctUntilChanged(
-    ctx: CoroutineContext = Dispatchers.Unconfined
+    ctx: CoroutineContext
 ): ReceiveChannel<T> = GlobalScope.produce(ctx) {
     val prev = LateinitValue<T>()
     consumeEach {
@@ -159,7 +159,7 @@ private class CoroutineLifecycleObserver(private val lifecycle: Lifecycle) : Lif
 suspend fun LifecycleOwner.runWhen(state: Lifecycle.State, block: suspend () -> Unit) {
     val sourceCtx = coroutineContext
     lifecycle.states { states ->
-        val shouldRun = states.map { it.isAtLeast(state) }.distinctUntilChanged()
+        val shouldRun = states.map { it.isAtLeast(state) }.distinctUntilChanged(coroutineContext)
         withContext(sourceCtx) {
             shouldRun.consumeSeparately {
                 if (it) block()
