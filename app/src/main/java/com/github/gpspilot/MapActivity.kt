@@ -28,6 +28,7 @@ import org.koin.android.viewmodel.ext.android.viewModel
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.coroutines.CoroutineContext
+import kotlin.system.measureTimeMillis
 
 
 private const val EXTRA_FNAME = "extra_fname"
@@ -235,33 +236,37 @@ class MapVM(
             val wayPoints = route?.wayPoints
             if (wayPoints == null || wayPoints.isEmpty()) return@launch
 
-            val (projection, projectionTime) = measureTimeMillis {
-                route.getWayPointsProjections()
+            lateinit var projectionPositions: List<Int>
+            lateinit var projection: List<LatLng>
+            val projectionTime = measureTimeMillis {
+                projectionPositions = route.getWayPointsProjections()
+                projection = route.track.getElements(projectionPositions)
             }
             i { "Projection calculated for $projectionTime ms." }
 
             wpProjections.send(projection)
 
+            // By default we start from 0 position
+            val trackPosition = currentTrackPositions.openSubscription().startWith(coroutineContext, 0)
             // The last waypoint is target by default
-            val positions = targetWayPoints.openSubscription().startWith(coroutineContext, wayPoints.lastPosition)
+            val wpPositions = targetWayPoints.openSubscription().startWith(coroutineContext, wayPoints.lastPosition)
 
-            positions.consumeEach { targetPos ->
-                i { "Waypoint target position: $targetPos (of ${wayPoints.size})" }
-
-                targetPos?.let { pos ->
+            consumeLatest(trackPosition, wpPositions) { trackPos, wpPos ->
+                wpPos?.let { pos ->
                     if (pos in projection.indices) {
                         targetTrackPoint.send(projection[pos])
                     } else {
-                        e { "Can't find projection point for target $pos position (${projection.size})." }
+                        e { "Wrong projection point position: $pos (projection count: ${projection.size})." }
                     }
                 }
 
                 val result = wayPoints.mapIndexed { index, wayPoint ->
-                    WayPoint(
-                        location = wayPoint.location,
-                        // TODO: include passed objects
-                        type = if (index == targetPos) WayPoint.Type.TARGET else WayPoint.Type.REMAINING
-                    )
+                    val type = when {
+                        index == wpPos -> WayPoint.Type.TARGET
+                        projectionPositions[index] <= trackPos -> WayPoint.Type.PASSED
+                        else -> WayPoint.Type.REMAINING
+                    }
+                    WayPoint(wayPoint.location, type)
                 }
                 this@MapVM.wayPoints.send(result)
             }
@@ -437,7 +442,7 @@ private inline fun locationSource(
 /**
  * Calculates projections of [Gpx.wayPoints] to [Gpx.track].
  */
-private suspend fun Gpx.getWayPointsProjections(): List<LatLng> = withContext(Dispatchers.Default) {
+private suspend fun Gpx.getWayPointsProjections(): List<Int> = withContext(Dispatchers.Default) {
     var startPosition = 0 // Position from which traverse track list
     val trackSeq = track.asSequence()
     wayPoints.mapNotNull { wp ->
@@ -447,7 +452,7 @@ private suspend fun Gpx.getWayPointsProjections(): List<LatLng> = withContext(Di
         val nearest = seq.findNearestPosition(wp.location)?.let { it + startPosition }
         nearest?.let {
             startPosition = it // Assign found position to start traverse from here for next waypoint
-            track[it]
+            it
         }
     }
 }

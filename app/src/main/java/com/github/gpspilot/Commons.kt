@@ -98,19 +98,6 @@ inline fun <T, R : Comparable<R>> Iterable<T>.minPositionBy(selector: (T) -> R):
 }
 
 
-/**
- * Executes the given [block] and returns [Pair] of [block]'s result elapsed time in milliseconds.
- * The function is useful, when you need to measure of some new value evaluation and use this
- * value outside of [block] scope without `var` declaration.
- *
- * In feature, when contracts will be stable, this function become unnecessary.
- */
-inline fun <T> measureTimeMillis(block: () -> T): Pair<T, Long> {
-    val start = System.currentTimeMillis()
-    return block() to (System.currentTimeMillis() - start)
-}
-
-
 inline val List<*>.lastPosition: Int get() = size - 1
 
 fun <T> List<T>.indexOrNull(item: T): Int? = indexOf(item).takeIf { it >= 0 }
@@ -126,4 +113,9 @@ inline fun <T1, T2> ifAllInitialized(
             action(v1, v2)
         }
     }
+}
+
+
+fun <T> List<T>.getElements(positions: List<Int>): List<T> {
+    return positions.map { get(it) }
 }
