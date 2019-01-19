@@ -236,14 +236,12 @@ class MapVM(
             if (wayPoints == null || wayPoints.isEmpty()) return@launch
 
             lateinit var projectionPositions: List<Int>
-            lateinit var projection: List<LatLng>
             val projectionTime = measureTimeMillis {
                 projectionPositions = route.getWayPointsProjections()
-                projection = route.track.getElements(projectionPositions)
             }
             i { "Projection calculated for $projectionTime ms." }
 
-            wpProjections.send(projection)
+            handleProjections(route, projectionPositions)
 
             // By default we start from 0 position
             val trackPosition = currentTrackPositions.openSubscription().startWith(coroutineContext, 0)
@@ -268,6 +266,22 @@ class MapVM(
                     WayPoint(wayPoint.location, type)
                 }
                 this@MapVM.wayPoints.send(result)
+            }
+        }
+    }
+
+    private fun CoroutineScope.handleProjections(route: Gpx, projectionPositions: List<Int>) {
+        launch {
+            val projection = route.track.getElements(projectionPositions)
+
+            val targetPositions = targetTrackPosition.openSubscription().distinctUntilChanged(coroutineContext)
+            targetPositions.consumeEach { targetPos ->
+                val result = if (targetPos !in projectionPositions) {
+                    projection + route.track[targetPos]
+                } else {
+                    projection
+                }
+                wpProjections.send(result)
             }
         }
     }
@@ -384,7 +398,6 @@ class MapVM(
                 if (distancePx <= clickDistance) {
                     targetWayPoints.send(null)
                     targetTrackPosition.send(nearestPos)
-                    // TODO: show projection point
                 }
             }
         }
