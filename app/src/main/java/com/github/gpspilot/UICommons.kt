@@ -6,6 +6,10 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.annotation.StringRes
+import androidx.databinding.ObservableBoolean
+import androidx.databinding.ObservableField
+import androidx.databinding.ObservableFloat
+import androidx.databinding.ObservableInt
 import kotlin.reflect.KClass
 
 
@@ -60,3 +64,15 @@ inline fun <reified T> Activity.extra(name: String): T? = with(intent) {
         null
     }
 }
+
+
+typealias ObservableString = ObservableField<String>
+
+class Observable<T> : ObservableField<T>() {
+    inline var value: T? set(value) = set(value); get() = get()
+}
+
+inline var ObservableBoolean.value: Boolean set(value) = set(value); get() = get()
+inline var ObservableInt.value: Int set(value) = set(value); get() = get()
+inline var ObservableFloat.value: Float set(value) = set(value); get() = get()
+inline var ObservableString.value: String? set(value) = set(value); get() = get()

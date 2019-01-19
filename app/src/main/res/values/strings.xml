@@ -3,4 +3,8 @@
     <string name="error_occurred">Error occurred</string>
     <string name="can_not_parse_route">Can\'t parse route</string>
     <string name="location_permission_denied">Location permission denied</string>
+    <string name="speed">Speed</string>
+    <string name="average">Average:</string>
+    <string name="current">Current:</string>
+    <string name="kmPerHour">km/h</string>
 </resources>

@@ -241,3 +241,30 @@ suspend fun <T1, T2> consumeLatest(
         d { "One of channels has been closed." }
     }
 }
+
+
+@ObsoleteCoroutinesApi
+@ExperimentalCoroutinesApi
+fun <T> ReceiveChannel<T>.broadcast(
+    ctx: CoroutineContext,
+    capacity: Int
+): BroadcastChannel<T> = GlobalScope.broadcast(ctx, capacity) {
+    this@broadcast.consumeEach { send(it) }
+}
+
+
+@ObsoleteCoroutinesApi
+@ExperimentalCoroutinesApi
+fun ReceiveChannel<Float>.average(
+    ctx: CoroutineContext,
+    capacity: Int = 0
+): ReceiveChannel<Float> = GlobalScope.produce(ctx, capacity) {
+    var sum = 0.0
+    var count = 0L
+    consumeEach {
+        sum += it
+        count++
+        val average = (sum / count).toFloat()
+        send(average)
+    }
+}

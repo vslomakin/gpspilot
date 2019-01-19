@@ -8,7 +8,9 @@ import android.graphics.Point
 import android.location.Location
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.databinding.DataBindingUtil
 import com.github.gpspilot.UiRequest.Toast.Length
+import com.github.gpspilot.databinding.ActivityMapBinding
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.maps.*
@@ -18,10 +20,7 @@ import d
 import e
 import i
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.BroadcastChannel
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.channels.*
 import org.koin.android.viewmodel.ext.android.viewModel
 import w
 import java.io.File
@@ -56,7 +55,10 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
             finish()
             return
         }
-        setContentView(R.layout.activity_map)
+
+        DataBindingUtil
+            .setContentView<ActivityMapBinding>(this, R.layout.activity_map)
+            .also { it.vm = vm }
 
         handleUiRequests(vm.uiRequests())
         vm.run(routePath)
@@ -182,6 +184,11 @@ class MapVM(
     data class WayPoint(val location: LatLng, val type: Type) {
         enum class Type { PASSED, TARGET, REMAINING }
     }
+
+
+    val averageSpeed = ObservableString("-")
+    val currentSpeed = ObservableString("-")
+
 
     private val uiReq = BroadcastChannel<UiRequest>(1)
     fun uiRequests() = uiReq.openSubscription()
@@ -370,6 +377,7 @@ class MapVM(
         // Handle device location
         launch(Dispatchers.Main) {
             locationPermissionGranted.join()
+            handleSpeed()
             d { "Location permission granted, requesting location update..." }
             val channel = locationProviderClient.locations {
                 priority = LocationRequest.PRIORITY_HIGH_ACCURACY
@@ -377,6 +385,30 @@ class MapVM(
                 fastestInterval = 50
             }
             channel.consumeEach { _locations.send(it) }
+        }
+    }
+
+    private fun CoroutineScope.handleSpeed() {
+        val kmPerHourTemplate = "%.1f " + ctx.getString(R.string.kmPerHour)
+        launch {
+            val speeds = locations()
+                .map(coroutineContext) { it.speed.meterPerSecToKmPerHour() }
+                .broadcast(coroutineContext, Channel.CONFLATED)
+
+            // Current speed
+            launch {
+                speeds.openSubscription().distinctUntilChanged(coroutineContext).consumeEach { speed ->
+                    currentSpeed.value = kmPerHourTemplate.format(speed)
+                }
+            }
+
+            // Average speed
+            launch {
+                // TODO: implement reset
+                speeds.openSubscription().average(coroutineContext).consumeEach { speed ->
+                    averageSpeed.value = kmPerHourTemplate.format(speed)
+                }
+            }
         }
     }
 

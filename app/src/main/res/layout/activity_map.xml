@@ -1,16 +1,113 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-             xmlns:tools="http://schemas.android.com/tools"
-             android:orientation="vertical"
-             android:layout_width="match_parent"
-             android:layout_height="match_parent"
-             tools:context=".MapActivity">
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <fragment xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:tools="http://schemas.android.com/tools"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:id="@+id/map"
-              android:name="com.google.android.gms.maps.SupportMapFragment"/>
+    <data>
+        <variable name="vm" type="com.github.gpspilot.MapVM" />
+    </data>
 
-</FrameLayout>
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:context=".MapActivity">
+
+        <fragment
+            xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:tools="http://schemas.android.com/tools"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:id="@+id/map"
+            android:name="com.google.android.gms.maps.SupportMapFragment"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <View
+            android:id="@+id/speedPanel"
+            android:layout_width="100dp"
+            android:layout_height="128dp"
+            android:background="#b4483232"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <TextView
+            android:id="@+id/speedLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/speed"
+            app:layout_constraintTop_toTopOf="@id/speedPanel"
+            app:layout_constraintStart_toStartOf="@id/speedPanel"
+            android:textAllCaps="true"
+            android:textColor="@color/mapPanelText"
+            android:layout_marginTop="8dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:textSize="16sp"/>
+
+        <View
+            android:id="@+id/speedLabelDivider"
+            style="@style/MapPanelDivider"
+            app:layout_constraintTop_toBottomOf="@id/speedLabel"
+            app:layout_constraintStart_toStartOf="@id/speedPanel"
+            app:layout_constraintEnd_toEndOf="@id/speedPanel"/>
+
+        <TextView
+            android:id="@+id/averageSpeedLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/average"
+            android:textColor="@color/mapPanelSecondaryText"
+            app:layout_constraintTop_toBottomOf="@id/speedLabelDivider"
+            app:layout_constraintStart_toStartOf="@id/speedPanel"
+            android:layout_marginStart="8dp"/>
+
+        <TextView
+            android:id="@+id/averageSpeedValue"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            tools:text="5 km/h"
+            android:text="@{vm.averageSpeed}"
+            android:textColor="@color/mapPanelText"
+            android:textSize="16sp"
+            app:layout_constraintTop_toBottomOf="@id/averageSpeedLabel"
+            app:layout_constraintStart_toStartOf="@id/speedPanel"
+            app:layout_constraintEnd_toEndOf="@id/speedPanel"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"/>
+
+        <View
+            android:id="@+id/averageSpeedLabelDivider"
+            style="@style/MapPanelDivider"
+            app:layout_constraintTop_toBottomOf="@id/averageSpeedValue"
+            app:layout_constraintStart_toStartOf="@id/speedPanel"
+            app:layout_constraintEnd_toEndOf="@id/speedPanel"/>
+
+        <TextView
+            android:id="@+id/currentSpeedLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/current"
+            android:textColor="@color/mapPanelSecondaryText"
+            app:layout_constraintTop_toBottomOf="@id/averageSpeedLabelDivider"
+            app:layout_constraintStart_toStartOf="@id/speedPanel"
+            android:layout_marginStart="8dp"/>
+
+        <TextView
+            android:id="@+id/currentSpeedValue"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            tools:text="5.6 km/h"
+            android:text="@{vm.currentSpeed}"
+            android:textColor="@color/mapPanelText"
+            android:textSize="16sp"
+            app:layout_constraintTop_toBottomOf="@id/currentSpeedLabel"
+            app:layout_constraintStart_toStartOf="@id/speedPanel"
+            app:layout_constraintEnd_toEndOf="@id/speedPanel"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>

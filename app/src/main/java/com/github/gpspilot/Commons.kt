@@ -22,6 +22,7 @@ fun Context.isPermissionGranted(permission: String): Boolean {
 }
 
 fun Int.minInMilliseconds(): Long = this * 60L * 1000L
+fun Float.meterPerSecToKmPerHour(): Float = this * 3.6f
 
 
 class LateinitValue<T> {
