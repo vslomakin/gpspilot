@@ -212,28 +212,25 @@ class MapVM(
 
     private val routeFile = CompletableDeferred<File>()
 
-    private val route: Deferred<Gpx?> = async {
-        val file = routeFile.await()
-        documentBuilderFactory.parseGps(file)
-    }
-
     init {
+        // Handle waypoints
         launch {
-            route.await()?.let { gpx ->
-                remainingTracks.send(gpx.track)
-                cameraBounds.send(gpx.track.bounds())
-            } ?: run {
+            val file = routeFile.await()
+            val route = documentBuilderFactory.parseGps(file) ?: run {
                 uiReq.send(UiRequest.Toast(R.string.can_not_parse_route, Length.LONG))
                 uiReq.send(UiRequest.FinishActivity)
                 // TODO: send Crashlytics error
+                return@launch
             }
-        }
 
-        // Handle waypoints
-        launch {
-            val route = route.await()
-            val wayPoints = route?.wayPoints
-            if (wayPoints == null || wayPoints.isEmpty()) return@launch
+            handleTrackProgress(route)
+            handleTrackTypes(route)
+            handleLongClicks(route)
+
+            cameraBounds.send(route.track.bounds())
+
+            val wayPoints = route.wayPoints
+            if (wayPoints.isEmpty()) return@launch
 
             lateinit var projectionPositions: List<Int>
             val projectionTime = measureTimeMillis {
@@ -242,7 +239,29 @@ class MapVM(
             i { "Projection calculated for $projectionTime ms." }
 
             handleProjections(route, projectionPositions)
+            handleWayPoints(route, projectionPositions)
+        }
+    }
 
+    private fun CoroutineScope.handleProjections(route: Gpx, projectionPositions: List<Int>) {
+        launch {
+            val projection = route.track.getElements(projectionPositions)
+
+            val targetPositions = targetTrackPosition.openSubscription().distinctUntilChanged(coroutineContext)
+            targetPositions.consumeEach { targetPos ->
+                val result = if (targetPos !in projectionPositions) {
+                    projection + route.track[targetPos]
+                } else {
+                    projection
+                }
+                wpProjections.send(result)
+            }
+        }
+    }
+
+    private fun CoroutineScope.handleWayPoints(route: Gpx, projectionPositions: List<Int>) {
+        val wayPoints = route.wayPoints
+        launch {
             // By default we start from 0 position
             val trackPosition = currentTrackPositions.openSubscription().startWith(coroutineContext, 0)
             // The last waypoint is target by default
@@ -266,22 +285,6 @@ class MapVM(
                     WayPoint(wayPoint.location, type)
                 }
                 this@MapVM.wayPoints.send(result)
-            }
-        }
-    }
-
-    private fun CoroutineScope.handleProjections(route: Gpx, projectionPositions: List<Int>) {
-        launch {
-            val projection = route.track.getElements(projectionPositions)
-
-            val targetPositions = targetTrackPosition.openSubscription().distinctUntilChanged(coroutineContext)
-            targetPositions.consumeEach { targetPos ->
-                val result = if (targetPos !in projectionPositions) {
-                    projection + route.track[targetPos]
-                } else {
-                    projection
-                }
-                wpProjections.send(result)
             }
         }
     }
@@ -330,10 +333,11 @@ class MapVM(
             }
             channel.consumeEach { _locations.send(it) }
         }
+    }
 
-        // Handle track progress
+    private fun CoroutineScope.handleTrackProgress(route: Gpx) {
+        val track = route.track
         launch {
-            val track = route.awaitNotEmptyTrack().track
             var previousPosition: Int? = null
             locations().consumeEach { location ->
                 // Track is never empty, so result can't be null, we can safely cast
@@ -348,10 +352,11 @@ class MapVM(
                 }
             }
         }
+    }
 
-        // Handle remaining track
+    private fun CoroutineScope.handleTrackTypes(route: Gpx) {
+        val track = route.track
         launch {
-            val track = route.awaitNotEmptyTrack().track
             consumeLatest(
                 channel1 = currentTrackPositions.openSubscription(),
                 channel2 = targetTrackPosition.openSubscription()
@@ -378,10 +383,9 @@ class MapVM(
 
     private val clickDistance = ctx.resources.getDimensionPixelSize(R.dimen.track_click_boundaries)
 
-    init {
+    private fun CoroutineScope.handleLongClicks(route: Gpx) {
+        val track = route.track
         launch {
-            val track = route.awaitNotEmptyTrack().track
-
             longClicks.consumeEach { (clickLocation, projection) ->
                 // Track is never empty, so result can't be null, we can safely cast
                 val nearestPos = track.findNearestPosition(clickLocation)!!
