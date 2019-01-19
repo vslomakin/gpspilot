@@ -23,6 +23,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.consumeEach
 import org.koin.android.viewmodel.ext.android.viewModel
+import w
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.coroutines.CoroutineContext
@@ -196,6 +197,7 @@ class MapVM(
     fun unusedTracks() = unusedTracks.openSubscription()
 
 
+    private val currentTrackPositions = BroadcastChannel<Int>(Channel.CONFLATED)
     private val targetWayPoints = BroadcastChannel<Int?>(Channel.CONFLATED)
     private val targetTrackPosition = BroadcastChannel<Int>(Channel.CONFLATED)
 
@@ -206,9 +208,9 @@ class MapVM(
     fun wpProjections() = wpProjections.openSubscription()
 
 
-
     private val cameraBounds = BroadcastChannel<LatLngBounds>(Channel.CONFLATED)
     fun cameraBounds() = cameraBounds.openSubscription()
+
 
     private var launched = false
 
@@ -229,23 +231,69 @@ class MapVM(
             }
 
             handleLocations()
+
+            if (route.track.isEmpty()) {
+                e { "Track is empty." }
+                return@launch
+            }
+
             handleTrackPosition(route)
             handleTrack(route)
             handleLongClicks(route)
 
             cameraBounds.send(route.track.bounds())
 
-            val wayPoints = route.wayPoints
-            if (wayPoints.isEmpty()) return@launch
+            if (route.wayPoints.isNotEmpty()) {
+                lateinit var projectionPositions: List<Int>
+                val projectionTime = measureTimeMillis {
+                    projectionPositions = route.getWayPointsProjections()
+                }
+                i { "Projection calculated for $projectionTime ms." }
 
-            lateinit var projectionPositions: List<Int>
-            val projectionTime = measureTimeMillis {
-                projectionPositions = route.getWayPointsProjections()
+                handleProjections(route, projectionPositions)
+                handleWayPoints(route, projectionPositions)
+            } else {
+                w { "WayPoints not found." }
             }
-            i { "Projection calculated for $projectionTime ms." }
+        }
+    }
 
-            handleProjections(route, projectionPositions)
-            handleWayPoints(route, projectionPositions)
+    private fun CoroutineScope.handleTrackPosition(route: Gpx) {
+        val track = route.track
+        launch {
+            var previousPosition: Int? = null
+            locations().consumeEach { location ->
+                // Track is never empty, so result can't be null, we can safely cast
+                val position = track.findNearestPosition(location)!!
+                val distance = track[position].distanceTo(location)
+                if (distance <= MIN_DISTANCE) {
+                    if (position != previousPosition) {
+                        d { "Current point: $position, distance: $distance" }
+                        currentTrackPositions.send(position)
+                        previousPosition = position
+                    }
+                }
+            }
+        }
+    }
+
+    private fun CoroutineScope.handleTrack(route: Gpx) {
+        val track = route.track
+        launch {
+            consumeLatest(
+                channel1 = currentTrackPositions.openSubscription(),
+                channel2 = targetTrackPosition.openSubscription()
+            ) { currentPos, targetPos ->
+                i { "Positions: current - $currentPos, target - $targetPos (track: ${track.size})." }
+                val passedCount = (min(currentPos, targetPos)) + 1
+                passedTracks.send(track.take(passedCount))
+
+                val remaining = track.slice(currentPos..targetPos)
+                remainingTracks.offer(remaining)
+
+                val unused = track.slice(targetPos..track.lastPosition)
+                unusedTracks.offer(unused)
+            }
         }
     }
 
@@ -318,8 +366,6 @@ class MapVM(
     private val _locations = BroadcastChannel<Location>(Channel.CONFLATED)
     fun locations() = _locations.openSubscription()
 
-    private val currentTrackPositions = BroadcastChannel<Int>(Channel.CONFLATED)
-
     init {
         // Handle device location
         launch(Dispatchers.Main) {
@@ -331,45 +377,6 @@ class MapVM(
                 fastestInterval = 50
             }
             channel.consumeEach { _locations.send(it) }
-        }
-    }
-
-    private fun CoroutineScope.handleTrackPosition(route: Gpx) {
-        val track = route.track
-        launch {
-            var previousPosition: Int? = null
-            locations().consumeEach { location ->
-                // Track is never empty, so result can't be null, we can safely cast
-                val position = track.findNearestPosition(location)!!
-                val distance = track[position].distanceTo(location)
-                if (distance <= MIN_DISTANCE) {
-                    if (position != previousPosition) {
-                        d { "Current point: $position, distance: $distance" }
-                        currentTrackPositions.send(position)
-                        previousPosition = position
-                    }
-                }
-            }
-        }
-    }
-
-    private fun CoroutineScope.handleTrack(route: Gpx) {
-        val track = route.track
-        launch {
-            consumeLatest(
-                channel1 = currentTrackPositions.openSubscription(),
-                channel2 = targetTrackPosition.openSubscription()
-            ) { currentPos, targetPos ->
-                i { "Positions: current - $currentPos, target - $targetPos (track: ${track.size})." }
-                val passedCount = (min(currentPos, targetPos)) + 1
-                passedTracks.send(track.take(passedCount))
-
-                val remaining = track.slice(currentPos..targetPos)
-                remainingTracks.offer(remaining)
-
-                val unused = track.slice(targetPos..track.lastPosition)
-                unusedTracks.offer(unused)
-            }
         }
     }
 
@@ -405,6 +412,8 @@ class MapVM(
             }
         }
     }
+
+
 
     fun onClickMarker(number: Int) {
         targetWayPoints.offer(number)
