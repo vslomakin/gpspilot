@@ -229,8 +229,8 @@ class MapVM(
             }
 
             handleLocations()
-            handleTrackProgress(route)
-            handleTrackTypes(route)
+            handleTrackPosition(route)
+            handleTrack(route)
             handleLongClicks(route)
 
             cameraBounds.send(route.track.bounds())
@@ -334,7 +334,7 @@ class MapVM(
         }
     }
 
-    private fun CoroutineScope.handleTrackProgress(route: Gpx) {
+    private fun CoroutineScope.handleTrackPosition(route: Gpx) {
         val track = route.track
         launch {
             var previousPosition: Int? = null
@@ -353,7 +353,7 @@ class MapVM(
         }
     }
 
-    private fun CoroutineScope.handleTrackTypes(route: Gpx) {
+    private fun CoroutineScope.handleTrack(route: Gpx) {
         val track = route.track
         launch {
             consumeLatest(
