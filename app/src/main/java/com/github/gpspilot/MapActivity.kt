@@ -210,12 +210,17 @@ class MapVM(
     private val cameraBounds = BroadcastChannel<LatLngBounds>(Channel.CONFLATED)
     fun cameraBounds() = cameraBounds.openSubscription()
 
-    private val routeFile = CompletableDeferred<File>()
+    private var launched = false
 
-    init {
-        // Handle waypoints
+    fun run(routePath: String) {
+        if (launched) {
+            e { "Map view model already launched." }
+            return
+        }
+        launched = true
+
         launch {
-            val file = routeFile.await()
+            val file = File(routePath)
             val route = documentBuilderFactory.parseGps(file) ?: run {
                 uiReq.send(UiRequest.Toast(R.string.can_not_parse_route, Length.LONG))
                 uiReq.send(UiRequest.FinishActivity)
@@ -223,6 +228,7 @@ class MapVM(
                 return@launch
             }
 
+            handleLocations()
             handleTrackProgress(route)
             handleTrackTypes(route)
             handleLongClicks(route)
@@ -287,13 +293,6 @@ class MapVM(
                 this@MapVM.wayPoints.send(result)
             }
         }
-    }
-
-    fun run(routePath: String) {
-        // TODO: do not run by second invocation
-        d { "Route path: $routePath" }
-        routeFile.complete(File(routePath))
-        handleLocations()
     }
 
 
