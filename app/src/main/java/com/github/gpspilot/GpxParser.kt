@@ -3,10 +3,7 @@ package com.github.gpspilot
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.w3c.dom.Element
-import org.w3c.dom.NamedNodeMap
-import org.w3c.dom.Node
-import org.w3c.dom.NodeList
+import org.w3c.dom.*
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 
@@ -20,14 +17,18 @@ data class Gpx(
 }
 
 suspend fun DocumentBuilderFactory.parseGps(file: File): Gpx? = withContext(Dispatchers.IO) {
-    // TODO: handle IO errors
     val builder = newDocumentBuilder() // TODO: use shared instance?
-    val document = builder.parse(file)
-    val root = document.documentElement
+    val document: Document? = try {
+        builder.parse(file)
+    } catch (e: Exception) {
+        e logE { "Error occurs during file $file parsing." }
+        null
+    }
+    val root = document?.documentElement
 
-    val name = root.name()
-    val wayPoints = root.elementsByName("wpt") { it.wayPoint() }
-    val trackPoints = root.elementsByName("trkpt") { it.latLng() }
+    val name = root?.name()
+    val wayPoints = root?.elementsByName("wpt") { it.wayPoint() }
+    val trackPoints = root?.elementsByName("trkpt") { it.latLng() }
 
     if (name != null && wayPoints != null && trackPoints != null && trackPoints.isNotEmpty()) {
         Gpx(name, wayPoints, trackPoints)
