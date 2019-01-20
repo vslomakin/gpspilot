@@ -46,7 +46,6 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
 
     private val vm by viewModel<MapVM>()
 
-    @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -70,9 +69,9 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
                 val styled = setMapStyle(MapStyleOptions.loadRawResourceStyle(this@MapActivity, R.raw.map_style))
                 if (! styled) e { "Failed to parse map style json!" }
 
-                // TODO: check permission
-                isMyLocationEnabled = true // TODO: hide 'my location' button
                 setLocationSource(locationSource(vm.locations()))
+                handleMyLocation()
+
                 handleTracks()
                 handleCameraBounds()
                 handleWayPoints()
@@ -81,6 +80,12 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
                 setOnMarkerClickListener(::onMarkerClick)
             }
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun GoogleMap.handleMyLocation() = launch {
+        vm.locationPermissionGranted.join()
+        isMyLocationEnabled = true // TODO: hide 'my location' button
     }
 
     private fun GoogleMap.handleTracks() {
@@ -355,11 +360,12 @@ class MapVM(
     }
 
 
-    private val locationPermissionGranted = CompletableDeferred<Unit>()
+    private val _locationPermissionGranted = CompletableDeferred<Unit>()
+    val locationPermissionGranted: Job = _locationPermissionGranted
 
     private fun handleLocations() {
         if (ctx.isPermissionGranted(LOCATION_PERMISSION)) {
-            locationPermissionGranted.complete()
+            _locationPermissionGranted.complete()
         } else {
             uiReq.offer(UiRequest.Permission(LOCATION_PERMISSION))
         }
