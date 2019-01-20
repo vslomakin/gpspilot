@@ -404,16 +404,27 @@ class MapVM(
 
             // Average speed
             launch {
-                // TODO: implement reset
-                speeds.openSubscription().average(coroutineContext).consumeEach { speed ->
-                    averageSpeed.value = kmPerHourTemplate.format(speed)
+                // Start with Unit for initial setup
+                val resets = speedClicks.openSubscription().startWith(coroutineContext, Unit)
+                resets.consumeSeparately(true) {
+                    i { "Starting new average speed calculation." }
+                    speeds.openSubscription().average(coroutineContext).consumeEach { speed ->
+                        averageSpeed.value = kmPerHourTemplate.format(speed)
+                    }
                 }
             }
         }
     }
 
+    private val speedClicks = BroadcastChannel<Unit>(1)
 
-    private val longClicks = BroadcastChannel<Pair<LatLng, Projection>>(Channel.CONFLATED)
+    fun onSpeedClick(): Boolean {
+        speedClicks.offer()
+        return true
+    }
+
+
+    private val longClicks = BroadcastChannel<Pair<LatLng, Projection>>(Channel.CONFLATED) // TODO: may be capacity should be 1?
 
     fun onMapLongClick(clickLocation: LatLng, projection: Projection) {
         longClicks.offer(clickLocation to projection)
