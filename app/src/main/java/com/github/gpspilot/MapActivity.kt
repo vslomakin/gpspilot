@@ -232,7 +232,7 @@ class MapVM(
 
     fun run(routeId: Id) {
         if (launched) {
-            e { "Map view model already launched." }
+            w { "Map view model already launched." }
             return
         }
         launched = true
@@ -300,7 +300,7 @@ class MapVM(
         val track = route.track
         launch {
             consumeLatest(
-                channel1 = currentTrackPositions.openSubscription(),
+                channel1 = currentTrackPositions.openSubscription().startWith(coroutineContext, 0),
                 channel2 = targetTrackPosition.openSubscription()
             ) { currentPos, targetPos ->
                 i { "Positions: current - $currentPos, target - $targetPos (track: ${track.size})." }
