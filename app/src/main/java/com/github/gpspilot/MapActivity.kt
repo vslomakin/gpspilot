@@ -67,6 +67,10 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         launch {
             mapFragment.awaitMap().apply {
+                val styled = setMapStyle(MapStyleOptions.loadRawResourceStyle(this@MapActivity, R.raw.map_style))
+                if (! styled) e { "Failed to parse map style json!" }
+
+                // TODO: check permission
                 isMyLocationEnabled = true // TODO: hide 'my location' button
                 setLocationSource(locationSource(vm.locations()))
                 handleTracks()
