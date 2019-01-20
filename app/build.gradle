@@ -9,6 +9,7 @@ keys.load(new FileInputStream(keysPropertiesFile))
 
 android {
     compileSdkVersion 28
+
     defaultConfig {
         applicationId "com.github.gpspilot"
         minSdkVersion 21
@@ -19,10 +20,21 @@ android {
 
         manifestPlaceholders = [googleMapKey:keys.google_map]
     }
+
+    signingConfigs {
+        release {
+            storeFile file(keys.keystore_path)
+            storePassword keys.keystore_store_password
+            keyAlias keys.keystore_key_alias
+            keyPassword keys.keystore_key_password
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 
