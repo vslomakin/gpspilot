@@ -7,4 +7,8 @@
     <string name="average">Average:</string>
     <string name="current">Current:</string>
     <string name="kmPerHour">km/h</string>
+    <string name="km">%1$d km</string>
+    <string name="external_storage_unavailable">Can\'t save file, because external storage is unavailable</string>
+    <string name="error_occurred_during_file_saving">Error occurred during file saving</string>
+    <string name="no_routes">No routes</string>
 </resources>

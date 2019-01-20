@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.databinding.ObservableBoolean
@@ -76,3 +78,24 @@ inline var ObservableBoolean.value: Boolean set(value) = set(value); get() = get
 inline var ObservableInt.value: Int set(value) = set(value); get() = get()
 inline var ObservableFloat.value: Float set(value) = set(value); get() = get()
 inline var ObservableString.value: String? set(value) = set(value); get() = get()
+
+class ObservableVisibility(val invisible: Int, visible: Boolean) : ObservableInt() {
+
+    var value: Boolean
+        set(value) = set(value.toIntVisibility())
+        get() = get().toBoolVisibility()
+
+    init { value = visible }
+
+    private fun Boolean.toIntVisibility() = if (this) View.VISIBLE else invisible
+
+    private fun Int.toBoolVisibility() = (this == View.VISIBLE)
+
+    fun switch() {
+        value = !value
+    }
+}
+
+
+
+inline val Context.inflater: LayoutInflater get() = LayoutInflater.from(this)

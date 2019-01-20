@@ -63,8 +63,8 @@ fun LifecycleOwner.lifecycleCoroutineContext(
 }
 
 
-@ExperimentalCoroutinesApi
-fun BroadcastChannel<Unit>.offer() = offer(Unit)
+@ExperimentalCoroutinesApi fun BroadcastChannel<Unit>.offer() = offer(Unit)
+@ExperimentalCoroutinesApi suspend fun BroadcastChannel<Unit>.send() = send(Unit)
 
 fun CompletableDeferred<Unit>.complete() = complete(Unit)
 

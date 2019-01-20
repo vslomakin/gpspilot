@@ -1,26 +1,35 @@
 package com.github.gpspilot
 
 import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
-import d
+import androidx.databinding.DataBindingUtil
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.github.gpspilot.UiRequest.Toast
+import com.github.gpspilot.databinding.ActivityMainBinding
+import i
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BroadcastChannel
-import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.channels.produce
 import org.koin.android.viewmodel.ext.android.viewModel
 import w
 import java.io.File
 import java.io.InputStream
+import java.text.SimpleDateFormat
+import java.util.*
+import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.roundToLong
 
 private const val REQ_OPEN_FILE = 1
 
-@UseExperimental(ObsoleteCoroutinesApi::class)
+@UseExperimental(ObsoleteCoroutinesApi::class, ExperimentalCoroutinesApi::class)
 class MainActivity : AppCompatActivity(), CoroutineScope {
 
     private val vm by viewModel<MainActivityVM>()
@@ -31,10 +40,21 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        val binding = DataBindingUtil
+            .setContentView<ActivityMainBinding>(this, R.layout.activity_main)
+            .also { it.vm = vm }
+
+        binding.routesList.apply {
+            setHasFixedSize(true)
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = createListAdapter(vm.routes())
+            // TODO: Add decoration
+        }
+
         launch {
-            vm.onViewReady().consumeEach {
+            vm.openFileRequests().consumeEach {
                 val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    type = "*/*" // TODO: restrict to *.gps files only
+                    type = "*/*" // TODO: restrict to *.gpx files only
                     addCategory(Intent.CATEGORY_OPENABLE)
                 }
                 startActivityForResult(intent, REQ_OPEN_FILE)
@@ -42,6 +62,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         }
 
         handleUiRequests(vm.uiRequests())
+
+        vm.run()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -63,25 +85,100 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         }
         vm.onFileOpened(uri)
     }
-
 }
 
 
-@UseExperimental(ExperimentalCoroutinesApi::class)
+@ObsoleteCoroutinesApi
+@ExperimentalCoroutinesApi
 class MainActivityVM(
-    private val context: Context
+    private val context: Application,
+    private val repo: Repository,
+    private val documentBuilderFactory: DocumentBuilderFactory
 ) : CoroutineViewModel() {
 
     private val uiReq = BroadcastChannel<UiRequest>(1)
     fun uiRequests() = uiReq.openSubscription()
 
-    private var routeFile: Deferred<File>?
-            = context.defRouteFile?.takeIf { it.exists() }?.let(::CompletableDeferred)
+    private val routes = BroadcastChannel<List<RouteItem>>(Channel.CONFLATED)
+    fun routes() = routes.openSubscription()
+
+    private val openFileRequests = BroadcastChannel<Unit>(1)
+    fun openFileRequests() = openFileRequests.openSubscription()
+
+    val progressVisibility = ObservableVisibility(View.GONE, true)
+    val noRoutesVisibility = ObservableVisibility(View.GONE, false)
 
 
-    // TODO: make this logic more idiomatic
-    fun onViewReady(): ReceiveChannel<Unit> = produce {
-        routeFile?.let { file ->
+    private val launch = CompletableDeferred<Unit>()
+    fun run() = launch.complete()
+
+    init {
+        launch {
+            launch.join()
+            repo.getRouteList().consumeEach { routeList ->
+                progressVisibility.value = false
+                val vms = routeList.map { it.toVM() }
+                routes.send(vms)
+                noRoutesVisibility.value = routeList.isEmpty()
+            }
+        }
+    }
+
+    private val dataFormatter = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+
+    private fun Route.toVM() = MainActivityVM.RouteItem(
+        id = id,
+        date = dataFormatter.format(created),
+        length = context.getString(R.string.km, length / 1000),
+        name = name
+    )
+
+    fun onClickAdd() {
+        openFileRequests.offer()
+    }
+
+    private fun createNewFile(time: Date): File? {
+        val dir = context.routeFolder
+        if (dir?.mkdirs() == true) i { "Route dir created." }
+        val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault())
+        val fname = formatter.format(time) + ".gpx"
+        return dir?.append(fname)
+    }
+
+    fun onFileOpened(uri: Uri) {
+        val time = Date()
+        val file = createNewFile(time) ?: run {
+            uiReq.offer(Toast(R.string.external_storage_unavailable, Toast.Length.LONG))
+            return
+        }
+        // TODO: test case when file is broken
+
+        // TODO: show some kind of progress while file saving
+        launch(Dispatchers.IO) {
+            val copied = context.copyUriToFile(uri, file)
+            if (copied) {
+                i { "New route saved at: $file." }
+                val gpx = documentBuilderFactory.parseGps(file)
+                if (gpx != null) {
+                    val route = UnsavedRoute(
+                        id = null,
+                        name = gpx.name,
+                        created = time,
+                        length = gpx.track.pathLength.roundToLong(),
+                        file = file
+                    )
+                    repo.addRoute(route)
+                } else {
+                    uiReq.send(Toast(R.string.can_not_parse_route, Toast.Length.SHORT))
+                }
+            } else {
+                uiReq.send(Toast(R.string.error_occurred_during_file_saving, Toast.Length.LONG))
+            }
+        }
+    }
+
+    fun onClickRoute(routeItem: RouteItem) {
+        /*routeFile?.let { file -> TODO: remove
             val req = UiRequest.StartActivity(
                 activity = MapActivity::class,
                 data = MapActivity.data(file.await())
@@ -89,45 +186,35 @@ class MainActivityVM(
             uiReq.send(req)
         } ?: run {
             send(Unit)
-        }
+        }*/
     }
 
-    fun onFileOpened(uri: Uri) {
-        if (context.routeFolder?.mkdirs() == true) {
-            d { "Route dir created." }
-        }
-
-        val file = context.defRouteFile
-        if (file == null) {
-            w { "External storage unavailable" }
-            // TODO: show toast
-            return
-        }
-
-        routeFile = async {
-            try {
-                context.contentResolver.openInputStream(uri).use { input: InputStream ->
-                    file.apply {
-                        createNewFile()
-                        outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                }
-                d { "File copied!" }
-            } catch (e: Exception) {
-                e logE { "Error occurred during file copying" }
-                // TODO: show error toast
-            }
-            file!!
-        }
+    data class RouteItem(
+        override val id: Long,
+        val date: String,
+        val length: String,
+        val name: String
+    ) : RecyclerViewItem {
+        override val layout: Int = R.layout.item_route
     }
 }
 
 private inline val Context.routeFolder: File?
     get() = getExternalFilesDir(null)?.append("routes")
 
-// TODO: implement choose UI
-private inline val Context.defRouteFile: File?
-    get() = routeFolder?.append("route.gpx")
-
+private fun Context.copyUriToFile(uri: Uri, file: File): Boolean {
+    return try {
+        contentResolver.openInputStream(uri).use { input: InputStream ->
+            file.apply {
+                createNewFile()
+                outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+        }
+        true
+    } catch (e: Exception) {
+        e logE { "Can't copy file: $file." }
+        false
+    }
+}

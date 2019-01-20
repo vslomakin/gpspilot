@@ -132,3 +132,9 @@ private fun hav(x: Double): Double {
     val sinHalf = sin(x * 0.5)
     return sinHalf * sinHalf
 }
+
+
+/**
+ * Path length in meters.
+ */
+inline val List<LatLng>.pathLength get() = SphericalUtil.computeLength(this)
