@@ -23,5 +23,5 @@ private fun module() = module {
     single { Repository(get()) }
 
     viewModel { MainActivityVM(androidApplication(), get(), get()) }
-    viewModel { MapVM(get(), get(), get()) }
+    viewModel { MapVM(get(), get(), get(), get()) }
 }

@@ -23,21 +23,20 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.*
 import org.koin.android.viewmodel.ext.android.viewModel
 import w
-import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.min
 import kotlin.system.measureTimeMillis
 
 
-private const val EXTRA_FNAME = "extra_fname"
+private const val EXTRA_ROUTE_ID = "extra_route_id"
 
 @UseExperimental(ObsoleteCoroutinesApi::class, ExperimentalCoroutinesApi::class)
 class MapActivity : AppCompatActivity(), CoroutineScope {
 
     companion object {
-        fun data(route: File): Bundle = Bundle().apply {
-            putString(EXTRA_FNAME, route.absolutePath)
+        fun data(routeId: Id): Bundle = Bundle().apply {
+            putLong(EXTRA_ROUTE_ID, routeId)
         }
     }
 
@@ -49,7 +48,7 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val routePath: String = extra(EXTRA_FNAME) ?: run {
+        val routePath: Id = extra(EXTRA_ROUTE_ID) ?: run {
             longToast(R.string.error_occurred)
             finish()
             return
@@ -187,7 +186,8 @@ private const val MIN_DISTANCE = 100
 class MapVM(
     private val ctx: Application,
     private val documentBuilderFactory: DocumentBuilderFactory,
-    private val locationProviderClient: FusedLocationProviderClient
+    private val locationProviderClient: FusedLocationProviderClient,
+    private val repo: Repository
 ) : CoroutineViewModel() {
 
     data class WayPoint(val location: LatLng, val type: Type) {
@@ -230,7 +230,7 @@ class MapVM(
 
     private var launched = false
 
-    fun run(routePath: String) {
+    fun run(routeId: Id) {
         if (launched) {
             e { "Map view model already launched." }
             return
@@ -238,8 +238,11 @@ class MapVM(
         launched = true
 
         launch {
-            val file = File(routePath)
-            val route = documentBuilderFactory.parseGps(file) ?: run {
+            val route = repo.openRoute(routeId)?.run {
+                documentBuilderFactory.parseGps(file)
+            }
+
+            route ?: run {
                 uiReq.send(UiRequest.Toast(R.string.can_not_parse_route, Length.LONG))
                 uiReq.send(UiRequest.FinishActivity)
                 // TODO: send Crashlytics error

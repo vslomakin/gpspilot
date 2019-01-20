@@ -130,7 +130,8 @@ class MainActivityVM(
         id = id,
         date = dataFormatter.format(created),
         length = context.getString(R.string.km, length / 1000),
-        name = name
+        name = name,
+        clickListener = ::onClickRoute
     )
 
     fun onClickAdd() {
@@ -177,25 +178,23 @@ class MainActivityVM(
         }
     }
 
-    fun onClickRoute(routeItem: RouteItem) {
-        /*routeFile?.let { file -> TODO: remove
-            val req = UiRequest.StartActivity(
-                activity = MapActivity::class,
-                data = MapActivity.data(file.await())
-            )
-            uiReq.send(req)
-        } ?: run {
-            send(Unit)
-        }*/
+    private fun onClickRoute(routeItem: RouteItem) {
+        val req = UiRequest.StartActivity(
+            activity = MapActivity::class,
+            data = MapActivity.data(routeItem.id)
+        )
+        uiReq.offer(req)
     }
 
     data class RouteItem(
         override val id: Long,
         val date: String,
         val length: String,
-        val name: String
+        val name: String,
+        val clickListener: (RouteItem) -> Unit
     ) : RecyclerViewItem {
         override val layout: Int = R.layout.item_route
+        fun onClick() = clickListener(this)
     }
 }
 

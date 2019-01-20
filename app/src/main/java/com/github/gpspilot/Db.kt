@@ -43,6 +43,9 @@ typealias Id = Long
     @Query("SELECT * FROM Routes ORDER BY lastOpened ASC LIMIT :count")
     fun get(count: Int): List<RouteEntity>
 
+    @Query("SELECT * FROM Routes WHERE id = :id LIMIT 1")
+    fun getById(id: Id): RouteEntity?
+
     @Insert(onConflict = REPLACE)
     fun insertOrReplace(route: RouteEntity): Id
 }

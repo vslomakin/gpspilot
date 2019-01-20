@@ -17,24 +17,61 @@ const val ROUTES_COUNT = 10
 
 @ExperimentalCoroutinesApi
 @ObsoleteCoroutinesApi
-class Repository(private val db: Database) {
+class Repository(private val _db: Database) {
     // TODO: remove unnecessary routes
 
     private val routesUpdates = BroadcastChannel<Unit>(1)
 
+    private suspend inline fun <T> readRoutes(crossinline block: suspend RoutesDao.() -> T): T {
+        return withContext(Dispatchers.IO) {
+            _db.routes().block()
+        }
+    }
+
+    private suspend inline fun <T> writeRoutes(crossinline block: suspend RoutesDao.() -> T): T {
+        return withContext(Dispatchers.IO) {
+            _db.routes().block().also {
+                routesUpdates.offer()
+            }
+        }
+    }
+
+    private suspend inline fun <T> whenRoutesUpdated(crossinline block: suspend () -> T): ReceiveChannel<T> {
+        return routesUpdates.openSubscription().startWith(coroutineContext, Unit).map { block() }
+    }
+
+
+
     suspend fun getRouteList(): ReceiveChannel<List<Route>> {
-        return routesUpdates.openSubscription().startWith(coroutineContext, Unit).map { _ ->
-            withContext(Dispatchers.IO) {
-                db.routes().get(ROUTES_COUNT).map { it.fromEntity() }.apply {
+        return whenRoutesUpdated {
+            readRoutes {
+                get(ROUTES_COUNT).map { it.fromEntity() }.apply {
                     i { "Loaded $size routes." }
                 }
             }
         }
     }
 
+    /**
+     * Return route with [routeId] or `null` if route with this id doesn't exist.
+     * [RouteEntity.lastOpened] will be updated to current time and saved to DB before return.
+     */
+    suspend fun openRoute(routeId: Id): Route? = writeRoutes {
+        // Try to load route
+        getById(routeId)?.let { entity ->
+            // If loaded - update last opened time
+            val newEntity = entity.copy(lastOpened = Date())
+            // And insert updated object to DB
+            insertOrReplace(newEntity)
+            i { "Updated open time for route with id: $routeId (${newEntity.lastOpened})." }
+            // Return updated object
+            newEntity.fromEntity()
+        }
+    }
+
     suspend fun addRoute(route: UnsavedRoute) {
-        withContext(Dispatchers.IO) {
-            val id = db.routes().insertOrReplace(route.toEntity())
+        writeRoutes {
+            val id = insertOrReplace(route.toEntity())
             i { "New route inserted with id: $id." }
             routesUpdates.send()
         }
