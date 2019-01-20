@@ -11,7 +11,11 @@ import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 
 
-data class Gpx(val wayPoints: List<WayPoint>, val track: List<LatLng>) {
+data class Gpx(
+    val name: String,
+    val wayPoints: List<WayPoint>,
+    val track: List<LatLng>
+) {
     data class WayPoint(val name: String?, val location: LatLng)
 }
 
@@ -21,12 +25,18 @@ suspend fun DocumentBuilderFactory.parseGps(file: File): Gpx? = withContext(Disp
     val document = builder.parse(file)
     val root = document.documentElement
 
+    val name = root.name()
     val wayPoints = root.elementsByName("wpt") { it.wayPoint() }
     val trackPoints = root.elementsByName("trkpt") { it.latLng() }
 
-    if (wayPoints != null && trackPoints != null && trackPoints.isNotEmpty()) {
-        Gpx(wayPoints, trackPoints)
+    if (name != null && wayPoints != null && trackPoints != null && trackPoints.isNotEmpty()) {
+        Gpx(name, wayPoints, trackPoints)
     } else null
+}
+
+private fun Element.name(): String? {
+    val metadata: Node? = getElementsByTagName("metadata").item(0)
+    return metadata?.childByName("name")?.textContent
 }
 
 private fun Node.wayPoint(): Gpx.WayPoint? {
