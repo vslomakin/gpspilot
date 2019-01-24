@@ -26,6 +26,7 @@ import w
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.min
+import kotlin.math.roundToLong
 import kotlin.system.measureTimeMillis
 
 
@@ -181,6 +182,8 @@ private const val LOCATION_PERMISSION = Manifest.permission.ACCESS_FINE_LOCATION
 
 private const val MIN_DISTANCE = 100
 
+private const val UNKNOWN_SYMBOL = "-"
+
 @ObsoleteCoroutinesApi
 @ExperimentalCoroutinesApi
 class MapVM(
@@ -195,8 +198,11 @@ class MapVM(
     }
 
 
-    val averageSpeed = ObservableString("-")
-    val currentSpeed = ObservableString("-")
+    val remainingTime = ObservableString(UNKNOWN_SYMBOL)
+    val arrivingTime = ObservableString(UNKNOWN_SYMBOL)
+
+    val averageSpeed = ObservableString(UNKNOWN_SYMBOL)
+    val currentSpeed = ObservableString(UNKNOWN_SYMBOL)
 
 
     private val uiReq = BroadcastChannel<UiRequest>(1)
@@ -259,6 +265,7 @@ class MapVM(
             handleTrackPosition(route)
             handleTrack(route)
             handleLongClicks(route)
+            handleRemainingTime(route)
 
             // Track is never empty, so we safely cast to not null
             cameraBounds.send(route.track.bounds()!!)
@@ -359,6 +366,40 @@ class MapVM(
                     WayPoint(wayPoint.location, type)
                 }
                 this@MapVM.wayPoints.send(result)
+            }
+        }
+    }
+
+    private fun CoroutineScope.handleRemainingTime(route: Gpx) {
+        val track = route.track
+        val timeTemplate = ctx.getString(R.string.time_template)
+        val arriveFormatter = "HH:mm".formatter()
+        launch {
+            consumeLatest(
+                currentTrackPositions.openSubscription(),
+                targetTrackPosition.openSubscription(),
+                locations().map { it.speed }.startWith(coroutineContext, 0f)
+            ) { currPos, targetPos, speed ->
+                val remainingSec: Long?
+                when {
+                    speed == 0f -> remainingSec = null
+                    currPos < targetPos -> {
+                        val distance = track.distance(currPos..targetPos)
+                        remainingSec = (distance / speed).roundToLong()
+                    }
+                    else -> remainingSec = 0 // if currPos >= targetPos
+                }
+
+                remainingTime.value = remainingSec?.let { sec ->
+                    val h = sec.secToFullHour()
+                    val min = (sec - h.hourToSec()).secToFullMin()
+                    timeTemplate.format(h, min)
+                } ?: UNKNOWN_SYMBOL
+
+                arrivingTime.value = remainingSec?.takeIf { it > 0L }?.let { sec ->
+                    val arriveAtMs = sec.secToMs() + System.currentTimeMillis()
+                    arriveFormatter.format(arriveAtMs)
+                } ?: UNKNOWN_SYMBOL
             }
         }
     }

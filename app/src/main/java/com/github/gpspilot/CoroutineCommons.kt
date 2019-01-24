@@ -219,17 +219,26 @@ fun <T> ReceiveChannel<T>.startWith(
 val infiniteDeferred: Deferred<Nothing> by lazy { CompletableDeferred<Nothing>() }
 
 
+
+@ExperimentalCoroutinesApi
+fun isClosed(channel: ReceiveChannel<*>, vararg channels: ReceiveChannel<*>): Boolean {
+    return if (channel.isClosedForReceive) {
+        true
+    } else {
+        channels.any { it.isClosedForReceive }
+    }
+}
+
 @ExperimentalCoroutinesApi
 suspend fun <T1, T2> consumeLatest(
     channel1: ReceiveChannel<T1>,
     channel2: ReceiveChannel<T2>,
     consumer: suspend (T1, T2) -> Unit
 ) {
-    fun isClosed() = channel1.isClosedForReceive || channel2.isClosedForReceive
     val value1 = LateinitValue<T1>()
     val value2 = LateinitValue<T2>()
     try {
-        while (!isClosed()) {
+        while (! isClosed(channel1, channel2)) {
             select<Unit> {
                 channel1.onReceive { value1.value = it }
                 channel2.onReceive { value2.value = it }
@@ -241,6 +250,33 @@ suspend fun <T1, T2> consumeLatest(
         d { "One of channels has been closed." }
     }
 }
+
+
+@ExperimentalCoroutinesApi
+suspend fun <T1, T2, T3> consumeLatest(
+    channel1: ReceiveChannel<T1>,
+    channel2: ReceiveChannel<T2>,
+    channel3: ReceiveChannel<T3>,
+    consumer: suspend (T1, T2, T3) -> Unit
+) {
+    val value1 = LateinitValue<T1>()
+    val value2 = LateinitValue<T2>()
+    val value3 = LateinitValue<T3>()
+    try {
+        while (! isClosed(channel1, channel2, channel3)) {
+            select<Unit> {
+                channel1.onReceive { value1.value = it }
+                channel2.onReceive { value2.value = it }
+                channel3.onReceive { value3.value = it }
+            }
+
+            ifAllInitialized(value1, value2, value3) { v1, v2, v3 -> consumer(v1, v2, v3) }
+        }
+    } catch (e: ClosedReceiveChannelException) {
+        d { "One of channels has been closed." }
+    }
+}
+
 
 
 @ObsoleteCoroutinesApi

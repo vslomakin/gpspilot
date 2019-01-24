@@ -25,11 +25,84 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"/>
 
+
+
+        <!-- Remaining panel -->
+        <View
+            android:id="@+id/remainingPanel"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:background="@color/bg_map_panel"
+            android:onLongClick="@{() -> vm.onSpeedClick()}"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/remainingLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/remaining"
+            android:textColor="@color/mapPanelSecondaryText"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="8dp"
+            app:layout_constraintTop_toTopOf="@id/remainingPanel"
+            app:layout_constraintStart_toStartOf="@id/remainingPanel" />
+
+        <TextView
+            android:id="@+id/remainingValue"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            tools:text="1 h 37 min"
+            android:text="@{vm.remainingTime}"
+            android:textColor="@color/mapPanelText"
+            android:textSize="16sp"
+            app:layout_constraintTop_toBottomOf="@id/remainingLabel"
+            app:layout_constraintStart_toStartOf="@id/remainingPanel"
+            app:layout_constraintEnd_toEndOf="@id/remainingPanel"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"/>
+
+        <View
+            android:id="@+id/remainingDivider"
+            style="@style/MapPanelDivider"
+            app:layout_constraintTop_toBottomOf="@id/remainingValue"
+            app:layout_constraintStart_toStartOf="@id/remainingPanel"
+            app:layout_constraintEnd_toEndOf="@id/remainingPanel"/>
+
+        <TextView
+            android:id="@+id/arrivingLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/arriving"
+            android:textColor="@color/mapPanelSecondaryText"
+            android:layout_marginStart="8dp"
+            app:layout_constraintTop_toBottomOf="@id/remainingDivider"
+            app:layout_constraintStart_toStartOf="@id/remainingPanel" />
+
+        <TextView
+            android:id="@+id/arrivingValue"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            tools:text="17:35"
+            android:text="@{vm.arrivingTime}"
+            android:textColor="@color/mapPanelText"
+            android:textSize="16sp"
+            app:layout_constraintTop_toBottomOf="@id/arrivingLabel"
+            app:layout_constraintStart_toStartOf="@id/remainingPanel"
+            app:layout_constraintEnd_toEndOf="@id/remainingPanel"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"/>
+
+
+
+
+        <!-- Speed panel -->
+
         <View
             android:id="@+id/speedPanel"
             android:layout_width="100dp"
             android:layout_height="128dp"
-            android:background="#b4483232"
+            android:background="@color/bg_map_panel"
             android:onLongClick="@{() -> vm.onSpeedClick()}"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"/>

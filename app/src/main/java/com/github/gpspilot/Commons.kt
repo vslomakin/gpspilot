@@ -8,6 +8,8 @@ import e
 import w
 import java.io.File
 import java.lang.Math.pow
+import java.text.SimpleDateFormat
+import java.util.*
 import kotlin.math.sqrt
 
 
@@ -21,8 +23,11 @@ fun Context.isPermissionGranted(permission: String): Boolean {
     return state == PackageManager.PERMISSION_GRANTED
 }
 
-fun Int.minInMilliseconds(): Long = this * 60L * 1000L
 fun Float.meterPerSecToKmPerHour(): Float = this * 3.6f
+fun Long.secToFullHour(): Long = this / 3600L
+fun Long.secToFullMin(): Long = this / 60L
+fun Long.hourToSec(): Long = this * 3600L
+fun Long.secToMs(): Long = this *  1000L
 
 
 class LateinitValue<T> {
@@ -119,6 +124,21 @@ inline fun <T1, T2> ifAllInitialized(
     }
 }
 
+inline fun <T1, T2, T3> ifAllInitialized(
+    value1: LateinitValue<T1>,
+    value2: LateinitValue<T2>,
+    value3: LateinitValue<T3>,
+    action: (T1, T2, T3) -> Unit
+) {
+    value1.ifInitialized { v1 ->
+        value2.ifInitialized { v2 ->
+            value3.ifInitialized { v3 ->
+                action(v1, v2, v3)
+            }
+        }
+    }
+}
+
 
 fun <T> List<T>.getElements(positions: List<Int>): List<T> {
     return positions.map { get(it) }
@@ -129,3 +149,14 @@ infix fun Point.distanceTo(another: Point): Double {
     val yDelta = pow(another.y.toDouble() - y.toDouble(), 2.0)
     return sqrt(xDelta + yDelta)
 }
+
+
+infix fun IntRange.exceed(another: IntRange): Boolean {
+    return (first < another.first) || (last > another.last)
+}
+
+infix fun IntRange.notExceed(another: IntRange): Boolean = !(this exceed another)
+
+fun IntRange.skip(count: Int): IntRange = (first + count)..last
+
+fun String.formatter() = SimpleDateFormat(this, Locale.getDefault())

@@ -11,4 +11,7 @@
     <string name="external_storage_unavailable">Can\'t save file, because external storage is unavailable</string>
     <string name="error_occurred_during_file_saving">Error occurred during file saving</string>
     <string name="no_routes">No routes</string>
+    <string name="time_template">%d h %d min</string>
+    <string name="remaining">Remaining:</string>
+    <string name="arriving">Arriving:</string>
 </resources>
