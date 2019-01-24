@@ -7,6 +7,7 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.SphericalUtil
 import d
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -138,3 +139,22 @@ private fun hav(x: Double): Double {
  * Path length in meters.
  */
 inline val List<LatLng>.pathLength get() = SphericalUtil.computeLength(this)
+
+
+/**
+ * Returns bounds of this track or `null` if track is empty.
+ */
+fun List<LatLng>.bounds(): LatLngBounds? {
+    val maxLat = maxBy { it.latitude }?.latitude
+    val maxLng = maxBy { it.longitude }?.longitude
+    val minLat = minBy { it.latitude }?.latitude
+    val minLng = minBy { it.longitude }?.longitude
+    return if (maxLat != null && maxLng != null && minLat != null && minLng != null) {
+        LatLngBounds(
+            LatLng(minLat, minLng),
+            LatLng(maxLat, maxLng)
+        )
+    } else {
+        null
+    }
+}

@@ -260,7 +260,8 @@ class MapVM(
             handleTrack(route)
             handleLongClicks(route)
 
-            cameraBounds.send(route.track.bounds())
+            // Track is never empty, so we safely cast to not null
+            cameraBounds.send(route.track.bounds()!!)
 
             if (route.wayPoints.isNotEmpty()) {
                 lateinit var projectionPositions: List<Int>
@@ -497,10 +498,6 @@ private inline var Marker.wayPointNumber: Int?
         tag = value
     }
     get() = tag as? Int
-
-
-
-private fun List<LatLng>.bounds() = LatLngBounds(first(), last())
 
 
 @ObsoleteCoroutinesApi
