@@ -40,7 +40,7 @@ typealias Id = Long
 )
 
 @Dao interface RoutesDao {
-    @Query("SELECT * FROM Routes ORDER BY lastOpened ASC LIMIT :count")
+    @Query("SELECT * FROM Routes ORDER BY lastOpened DESC LIMIT :count")
     fun get(count: Int): List<RouteEntity>
 
     @Query("SELECT * FROM Routes WHERE id = :id LIMIT 1")
