@@ -81,7 +81,7 @@ fun List<LatLng>.findNearestPosition(point: LatLng): Int? {
 
 
 
-fun LatLng.distanceTo(another: LatLng): Double = SphericalUtil.computeDistanceBetween(this, another)
+fun LatLng.distanceTo(another: LatLng): Double = SphericalUtil.computeDistanceBetween(this, another) // TODO: get ride of SphericalUtils dependency
 
 fun LatLng.distanceTo(another: Location): Double = distance(
     fromLatitude = latitude,
@@ -102,6 +102,38 @@ fun distance(fromLatitude: Double, fromLongitude: Double, toLatitude: Double, to
         toLongitude = toLongitude
     )
     return angle * 6371009.0
+}
+
+/**
+ * Calculates path of current track in [range] in meters.
+ */
+fun List<LatLng>.distance(range: IntRange = indices): Double {
+    require(range notExceed indices) { "Wrong range argument." }
+    return if (range.count() < 2) {
+        0.0
+    } else {
+        var length = 0.0
+
+        val prev = first()
+        var prevLat = Math.toRadians(prev.latitude)
+        var prevLng = Math.toRadians(prev.longitude)
+        for (i in range.skip(1)) {
+            val curr = this[i]
+            val lat = Math.toRadians(curr.latitude)
+            val lng = Math.toRadians(curr.longitude)
+            length += distanceRadians(
+                lat1 = prevLat,
+                lng1 = prevLng,
+                lat2 = lat,
+                lng2 = lng
+            )
+            prevLat = lat
+            prevLng = lng
+        }
+
+        length * 6371009.0
+    }
+
 }
 
 
@@ -133,12 +165,6 @@ private fun hav(x: Double): Double {
     val sinHalf = sin(x * 0.5)
     return sinHalf * sinHalf
 }
-
-
-/**
- * Path length in meters.
- */
-inline val List<LatLng>.pathLength get() = SphericalUtil.computeLength(this)
 
 
 /**

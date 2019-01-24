@@ -165,7 +165,7 @@ class MainActivityVM(
                         id = null,
                         name = gpx.name,
                         created = time,
-                        length = gpx.track.pathLength.roundToLong(),
+                        length = gpx.track.distance().roundToLong(),
                         file = file
                     )
                     repo.addRoute(route)
