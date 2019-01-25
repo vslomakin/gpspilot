@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Point
 import android.location.Location
 import android.os.Bundle
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
 import com.github.gpspilot.UiRequest.Toast.Length
@@ -198,6 +199,7 @@ class MapVM(
     }
 
 
+    val remainingPanelVisibility = ObservableVisibility(View.GONE, false)
     val remainingTime = ObservableString(UNKNOWN_SYMBOL)
     val arrivingTime = ObservableString(UNKNOWN_SYMBOL)
     val remainingDistance = ObservableString(UNKNOWN_SYMBOL)
@@ -267,6 +269,7 @@ class MapVM(
             handleTrackPosition(route)
             handleTrack(route)
             handleLongClicks(route)
+            handleRemainingPanelVisibility()
             handleRemainingTime(route)
 
             // Track is never empty, so we safely cast to not null
@@ -370,6 +373,14 @@ class MapVM(
                     WayPoint(wayPoint.location, type)
                 }
                 this@MapVM.wayPoints.send(result)
+            }
+        }
+    }
+
+    private fun CoroutineScope.handleRemainingPanelVisibility() {
+        launch {
+            nearTrack.openSubscription().consumeEach {
+                remainingPanelVisibility.value = it
             }
         }
     }
