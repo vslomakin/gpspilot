@@ -24,4 +24,8 @@
         <item name="android:background">#866d6d</item>
     </style>
 
+    <style name="MarkerTitle">
+        <item name="android:textColor">@color/mapPanelText</item>
+    </style>
+
 </resources>

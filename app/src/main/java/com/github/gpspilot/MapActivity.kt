@@ -3,6 +3,8 @@ package com.github.gpspilot
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Application
+import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Point
 import android.location.Location
@@ -17,6 +19,7 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.maps.*
 import com.google.android.gms.maps.LocationSource.OnLocationChangedListener
 import com.google.android.gms.maps.model.*
+import com.google.maps.android.ui.IconGenerator
 import d
 import e
 import i
@@ -132,10 +135,23 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
             setupOptions = { point ->
                 position(point.location)
                 tint(point.color)
-                // TODO: add a name
             },
             setupMarker = { index, marker ->
                 marker.wayPointNumber = index
+            }
+        )
+
+        // Waypoints names
+        val bottomPadding = resources.getDimensionPixelOffset(R.dimen.marker_content_bottom_padding)
+        handleMarkers(
+            markerLists = vm.wayPoints(),
+            setupOptions = { point ->
+                position(point.location)
+                iconDescriptor = makeIcon(point.name) {
+                    setContentPadding(0, 0, 0, bottomPadding)
+                    setTextAppearance(R.style.MarkerTitle)
+                    setBackground(null)
+                }
             }
         )
     }
@@ -194,7 +210,7 @@ class MapVM(
     private val repo: Repository
 ) : CoroutineViewModel() {
 
-    data class WayPoint(val location: LatLng, val type: Type) {
+    data class WayPoint(val name: String, val location: LatLng, val type: Type) {
         enum class Type { PASSED, TARGET, REMAINING }
     }
 
@@ -370,7 +386,11 @@ class MapVM(
                         projectionPositions[index] <= trackPos -> WayPoint.Type.PASSED
                         else -> WayPoint.Type.REMAINING
                     }
-                    WayPoint(wayPoint.location, type)
+                    WayPoint(
+                        name = wayPoint.name ?: index.inc().toString(),
+                        location = wayPoint.location,
+                        type = type
+                    )
                 }
                 this@MapVM.wayPoints.send(result)
             }
@@ -565,6 +585,23 @@ private inline var Marker.wayPointNumber: Int?
         tag = value
     }
     get() = tag as? Int
+
+private inline var MarkerOptions.iconDescriptor: BitmapDescriptor?
+    set(value) { icon(value) }
+    get() = icon
+
+private inline fun Context.makeMarkerBitmap(text: String, setup: IconGenerator.() -> Unit): Bitmap {
+    return IconGenerator(this).run {
+        setup()
+        makeIcon(text)
+    }
+}
+
+private inline fun Context.makeIcon(text: String, setup: IconGenerator.() -> Unit): BitmapDescriptor {
+    val bitmap = makeMarkerBitmap(text, setup)
+    return BitmapDescriptorFactory.fromBitmap(bitmap)
+}
+
 
 
 @ObsoleteCoroutinesApi
