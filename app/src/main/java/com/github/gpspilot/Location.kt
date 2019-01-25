@@ -8,7 +8,6 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
-import com.google.maps.android.SphericalUtil
 import d
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -81,7 +80,12 @@ fun List<LatLng>.findNearestPosition(point: LatLng): Int? {
 
 
 
-fun LatLng.distanceTo(another: LatLng): Double = SphericalUtil.computeDistanceBetween(this, another) // TODO: get ride of SphericalUtils dependency
+fun LatLng.distanceTo(another: LatLng): Double = distance(
+    fromLatitude = latitude,
+    fromLongitude = longitude,
+    toLatitude = another.latitude,
+    toLongitude = another.longitude
+)
 
 fun LatLng.distanceTo(another: Location): Double = distance(
     fromLatitude = latitude,
