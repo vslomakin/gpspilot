@@ -28,6 +28,7 @@ fun Long.secToFullHour(): Long = this / 3600L
 fun Long.secToFullMin(): Long = this / 60L
 fun Long.hourToSec(): Long = this * 3600L
 fun Long.secToMs(): Long = this *  1000L
+fun Double.metersToKm(): Double = this / 1000.0
 
 
 class LateinitValue<T> {

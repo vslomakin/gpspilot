@@ -31,7 +31,7 @@
         <View
             android:id="@+id/remainingPanel"
             android:layout_width="100dp"
-            android:layout_height="100dp"
+            android:layout_height="142dp"
             android:background="@color/bg_map_panel"
             android:onLongClick="@{() -> vm.onSpeedClick()}"
             app:layout_constraintStart_toStartOf="parent"
@@ -88,6 +88,37 @@
             android:textColor="@color/mapPanelText"
             android:textSize="16sp"
             app:layout_constraintTop_toBottomOf="@id/arrivingLabel"
+            app:layout_constraintStart_toStartOf="@id/remainingPanel"
+            app:layout_constraintEnd_toEndOf="@id/remainingPanel"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"/>
+
+        <View
+            android:id="@+id/arrivingDivider"
+            style="@style/MapPanelDivider"
+            app:layout_constraintTop_toBottomOf="@id/arrivingValue"
+            app:layout_constraintStart_toStartOf="@id/remainingPanel"
+            app:layout_constraintEnd_toEndOf="@id/remainingPanel"/>
+
+        <TextView
+            android:id="@+id/distanceLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/distance"
+            android:textColor="@color/mapPanelSecondaryText"
+            android:layout_marginStart="8dp"
+            app:layout_constraintTop_toBottomOf="@id/arrivingDivider"
+            app:layout_constraintStart_toStartOf="@id/remainingPanel" />
+
+        <TextView
+            android:id="@+id/distanceValue"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            tools:text="3.7 km"
+            android:text="@{vm.remainingDistance}"
+            android:textColor="@color/mapPanelText"
+            android:textSize="16sp"
+            app:layout_constraintTop_toBottomOf="@id/distanceLabel"
             app:layout_constraintStart_toStartOf="@id/remainingPanel"
             app:layout_constraintEnd_toEndOf="@id/remainingPanel"
             android:layout_marginStart="8dp"

@@ -200,6 +200,7 @@ class MapVM(
 
     val remainingTime = ObservableString(UNKNOWN_SYMBOL)
     val arrivingTime = ObservableString(UNKNOWN_SYMBOL)
+    val remainingDistance = ObservableString(UNKNOWN_SYMBOL)
 
     val averageSpeed = ObservableString(UNKNOWN_SYMBOL)
     val currentSpeed = ObservableString(UNKNOWN_SYMBOL)
@@ -374,20 +375,24 @@ class MapVM(
         val track = route.track
         val timeTemplate = ctx.getString(R.string.time_template)
         val arriveFormatter = "HH:mm".formatter()
+        val distanceTemplate = ctx.getString(R.string.km_template)
         launch {
             consumeLatest(
                 currentTrackPositions.openSubscription(),
                 targetTrackPosition.openSubscription(),
                 locations().map { it.speed }.startWith(coroutineContext, 0f)
             ) { currPos, targetPos, speed ->
-                val remainingSec: Long?
-                when {
-                    speed == 0f -> remainingSec = null
-                    currPos < targetPos -> {
-                        val distance = track.distance(currPos..targetPos)
-                        remainingSec = (distance / speed).roundToLong()
-                    }
-                    else -> remainingSec = 0 // if currPos >= targetPos
+                val remainingMeters = if (currPos < targetPos) {
+                    track.distance(currPos..targetPos)
+                } else {
+                    0.0
+                }
+
+                val remainingKm = remainingMeters.metersToKm()
+                remainingDistance.value = distanceTemplate.format(remainingKm)
+
+                val remainingSec = speed.takeIf { it > 0f }?.let {
+                    (remainingMeters / it).roundToLong()
                 }
 
                 remainingTime.value = remainingSec?.let { sec ->
