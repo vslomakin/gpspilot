@@ -1,7 +1,6 @@
 package com.github.gpspilot
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
@@ -10,14 +9,18 @@ import android.graphics.Point
 import android.location.Location
 import android.os.Bundle
 import android.view.View
+import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.drawable.toBitmap
 import androidx.databinding.DataBindingUtil
 import com.github.gpspilot.UiRequest.Toast.Length
 import com.github.gpspilot.databinding.ActivityMapBinding
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.maps.*
-import com.google.android.gms.maps.LocationSource.OnLocationChangedListener
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.Projection
+import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.*
 import com.google.maps.android.ui.IconGenerator
 import d
@@ -73,8 +76,7 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
                 val styled = setMapStyle(MapStyleOptions.loadRawResourceStyle(this@MapActivity, R.raw.map_style))
                 if (! styled) e { "Failed to parse map style json!" }
 
-                setLocationSource(locationSource(vm.locations()))
-                handleMyLocation()
+                showMyLocation()
 
                 handleTracks()
                 handleCameraBounds()
@@ -84,12 +86,6 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
                 setOnMarkerClickListener(::onMarkerClick)
             }
         }
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun GoogleMap.handleMyLocation() = launch {
-        vm.locationPermissionGranted.join()
-        isMyLocationEnabled = true // TODO: hide 'my location' button
     }
 
     private fun GoogleMap.handleTracks() {
@@ -174,6 +170,32 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
                     }
                     setupMarker?.invoke(index, newMarker)
                     newMarker
+                }
+            }
+        }
+    }
+
+    private fun GoogleMap.showMyLocation() {
+        val descriptor = descriptor(R.drawable.arrow_green) ?: run {
+            longToast(R.string.error_occurred)
+            finish()
+            e { "My location drawable hasn't been loaded!" }
+            return
+        }
+        launch {
+            var marker: Marker? = null
+            vm.locations().consumeEach { location ->
+                marker?.apply {
+                    position = location.toLatLng()
+                    rotation = location.bearing
+                } ?: run {
+                    marker = addMarker {
+                        position(location.toLatLng())
+                        rotation(location.bearing)
+                        flat(true)
+                        anchor(0.5f, 1f)
+                        icon(descriptor)
+                    }
                 }
             }
         }
@@ -479,7 +501,8 @@ class MapVM(
         launch(Dispatchers.Main) {
             locationPermissionGranted.join()
             handleSpeed()
-            d { "Location permission granted, requesting location update..." }
+            i { "Location permission granted, requesting location update..." }
+            // TODO: deactivate by stop
             val channel = locationProviderClient.locations {
                 priority = LocationRequest.PRIORITY_HIGH_ACCURACY
                 interval = 500
@@ -565,6 +588,11 @@ class MapVM(
 }
 
 
+private fun Context.descriptor(@DrawableRes resId: Int): BitmapDescriptor? {
+    val bitmap = compatDrawable(resId)?.toBitmap()
+    return bitmap?.let(BitmapDescriptorFactory::fromBitmap)
+}
+
 
 private inline fun GoogleMap.addPolyline(setup: PolylineOptions.() -> Unit): Polyline {
     val options = PolylineOptions().apply(setup)
@@ -600,44 +628,6 @@ private inline fun Context.makeMarkerBitmap(text: String, setup: IconGenerator.(
 private inline fun Context.makeIcon(text: String, setup: IconGenerator.() -> Unit): BitmapDescriptor {
     val bitmap = makeMarkerBitmap(text, setup)
     return BitmapDescriptorFactory.fromBitmap(bitmap)
-}
-
-
-
-@ObsoleteCoroutinesApi
-@ExperimentalCoroutinesApi
-private fun CoroutineScope.locationSource(locations: ReceiveChannel<Location>): LocationSource {
-    val listeners = BroadcastChannel<OnLocationChangedListener?>(Channel.CONFLATED)
-    val locationSource = locationSource { listeners.offer(it) }
-    // TODO: deactivate by stop
-
-    launch(Dispatchers.Main) {
-        listeners.openSubscription().consumeSeparately {
-            it?.let { listener ->
-                locations.consumeEach { location ->
-                    listener.onLocationChanged(location)
-                }
-            }
-        }
-    }
-
-    return locationSource
-}
-
-
-/**
- * Inline helper to reduce noise.
- */
-private inline fun locationSource(
-    crossinline onListenerChanged: (OnLocationChangedListener?) -> Unit
-): LocationSource = object : LocationSource {
-    override fun activate(listener: OnLocationChangedListener?) {
-        onListenerChanged(listener)
-    }
-
-    override fun deactivate() {
-        onListenerChanged(null)
-    }
 }
 
 

@@ -78,6 +78,8 @@ fun List<LatLng>.findNearestPosition(point: LatLng): Int? {
 }
 
 
+fun Location.toLatLng(): LatLng = LatLng(latitude, longitude)
+
 
 
 fun LatLng.distanceTo(another: LatLng): Double = distance(

@@ -3,11 +3,14 @@ package com.github.gpspilot
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.Toast
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.core.content.ContextCompat
 import androidx.databinding.ObservableBoolean
 import androidx.databinding.ObservableField
 import androidx.databinding.ObservableFloat
@@ -99,3 +102,6 @@ class ObservableVisibility(val invisible: Int, visible: Boolean) : ObservableInt
 
 
 inline val Context.inflater: LayoutInflater get() = LayoutInflater.from(this)
+
+
+fun Context.compatDrawable(@DrawableRes resId: Int): Drawable? = ContextCompat.getDrawable(this, resId)
