@@ -2,6 +2,7 @@
 <resources>
     <dimen name="track_click_boundaries">15dp</dimen>
     <dimen name="marker_content_bottom_padding">50dp</dimen>
+    <dimen name="route_list_header_text_size">14sp</dimen>
     <dimen name="route_item_text_margin">1dp</dimen>
     <dimen name="route_item_divider_margin">10dp</dimen>
 </resources>

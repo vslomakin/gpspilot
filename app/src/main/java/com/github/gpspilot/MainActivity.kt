@@ -48,7 +48,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
             setHasFixedSize(true)
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = createListAdapter(vm.routes())
-            // TODO: Add decoration
         }
 
         launch {
@@ -106,6 +105,7 @@ class MainActivityVM(
     fun openFileRequests() = openFileRequests.openSubscription()
 
     val progressVisibility = ObservableVisibility(View.GONE, true)
+    val headerVisibility = ObservableVisibility(View.INVISIBLE, false)
     val noRoutesVisibility = ObservableVisibility(View.GONE, false)
 
 
@@ -120,6 +120,7 @@ class MainActivityVM(
                 val vms = routeList.map { it.toVM() }
                 routes.send(vms)
                 noRoutesVisibility.value = routeList.isEmpty()
+                headerVisibility.value = routeList.isNotEmpty()
             }
         }
     }

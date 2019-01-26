@@ -12,13 +12,94 @@
         android:layout_height="match_parent"
         tools:context=".MainActivity">
 
+        <!-- Header -->
+
+        <TextView
+            android:id="@+id/createdLabel"
+            android:layout_width="0dp"
+            android:layout_height="18sp"
+            android:text="@string/created"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:layout_marginTop="8dp"
+            android:textSize="@dimen/route_list_header_text_size"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:visibility="@{vm.headerVisibility}"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintHorizontal_bias="0.5"
+            app:layout_constraintEnd_toStartOf="@+id/createdLabelDivider"/>
+
+        <View
+            android:id="@+id/createdLabelDivider"
+            android:layout_width="3dp"
+            android:layout_height="0dp"
+            android:background="@color/colorAccent"
+            android:visibility="@{vm.headerVisibility}"
+            app:layout_constraintStart_toEndOf="@+id/createdLabel"
+            app:layout_constraintTop_toTopOf="@id/createdLabel"
+            app:layout_constraintBottom_toBottomOf="@id/createdLabel"
+            app:layout_constraintHorizontal_bias="0.5"
+            app:layout_constraintEnd_toStartOf="@+id/lengthLabel"/>
+
+        <TextView
+            android:id="@+id/lengthLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="@string/length"
+            app:layout_constraintStart_toEndOf="@+id/createdLabelDivider"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:textSize="@dimen/route_list_header_text_size"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:visibility="@{vm.headerVisibility}"
+            app:layout_constraintTop_toTopOf="@id/createdLabel"
+            app:layout_constraintBottom_toBottomOf="@id/createdLabel"
+            app:layout_constraintHorizontal_bias="0.5"
+            app:layout_constraintEnd_toStartOf="@+id/lengthLabelDivider"/>
+
+        <View
+            android:id="@+id/lengthLabelDivider"
+            android:layout_width="3dp"
+            android:layout_height="0dp"
+            android:background="@color/colorAccent"
+            android:visibility="@{vm.headerVisibility}"
+            app:layout_constraintStart_toEndOf="@+id/lengthLabel"
+            app:layout_constraintTop_toTopOf="@id/lengthLabel"
+            app:layout_constraintBottom_toBottomOf="@id/lengthLabel"
+            app:layout_constraintHorizontal_bias="0.5"
+            app:layout_constraintEnd_toStartOf="@+id/nameLabel"/>
+
+        <TextView
+            android:id="@+id/nameLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="@string/name"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:textSize="@dimen/route_list_header_text_size"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:visibility="@{vm.headerVisibility}"
+            app:layout_constraintStart_toEndOf="@+id/lengthLabelDivider"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/createdLabel"
+            app:layout_constraintBottom_toBottomOf="@id/createdLabel"
+            app:layout_constraintHorizontal_bias="0.5"/>
+
+
+        <!-- List -->
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/routesList"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            android:layout_marginTop="@dimen/route_item_divider_margin"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/createdLabel"
             app:layout_constraintBottom_toBottomOf="parent"
             tools:listitem="@layout/item_route"/>
 
@@ -40,6 +121,7 @@
             app:layout_constraintLeft_toLeftOf="parent"
             app:layout_constraintRight_toRightOf="parent"
             app:layout_constraintTop_toTopOf="parent"/>
+
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/addBtn"
