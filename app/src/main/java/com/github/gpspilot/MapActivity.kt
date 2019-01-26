@@ -306,22 +306,20 @@ class MapVM(
     }
 
     init {
+        // Handle case when track not loaded properly
         launch {
-            val route = route.await()
-
-            route ?: run {
+            val route = this@MapVM.route.await()
+            if (route == null || route.track.isEmpty()) {
                 uiReq.send(UiRequest.Toast(R.string.can_not_parse_route, Length.LONG))
                 uiReq.send(UiRequest.FinishActivity)
                 // TODO: send Crashlytics error
-                return@launch
             }
+        }
+
+        launch {
+            val route = route.awaitNotEmptyTrack()
 
             handleLocations()
-
-            if (route.track.isEmpty()) {
-                e { "Track is empty." }
-                return@launch
-            }
 
             handleEntireTrackShowing(route)
             handleTrackPosition(route)
