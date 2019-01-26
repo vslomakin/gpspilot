@@ -8,6 +8,7 @@ import e
 import w
 import java.io.File
 import java.lang.Math.pow
+import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.sqrt
@@ -161,3 +162,17 @@ infix fun IntRange.notExceed(another: IntRange): Boolean = !(this exceed another
 fun IntRange.skip(count: Int): IntRange = (first + count)..last
 
 fun String.formatter() = SimpleDateFormat(this, Locale.getDefault())
+
+fun SimpleDateFormat.parseOrNull(text: String): Date? {
+    return try {
+        parse(text)
+    } catch (e: ParseException) {
+        e { "Can't parse string $text." }
+        null
+    }
+}
+
+fun String.parseDate(format: String): Date? = format.formatter().parseOrNull(this)
+
+fun Date.format(format: String): String = format.formatter().format(this)
+

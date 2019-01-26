@@ -71,7 +71,8 @@ class Repository(private val _db: Database) {
 
     suspend fun addRoute(route: UnsavedRoute) {
         writeRoutes {
-            val id = insertOrReplace(route.toEntity())
+            val lastOpened = Date() // For newly created routes it assumed it was opened recently
+            val id = insertOrReplace(route.toEntity(lastOpened))
             i { "New route inserted with id: $id." }
             routesUpdates.send()
         }
@@ -101,11 +102,11 @@ private fun RouteEntity.fromEntity() = Route(
     file = file
 )
 
-private fun UnsavedRoute.toEntity() = RouteEntity(
+private fun UnsavedRoute.toEntity(lastOpened: Date) = RouteEntity(
     id = 0L,
     name = name,
     created = created,
-    lastOpened = created, // For newly created routes it assumed it was opened recently
+    lastOpened = lastOpened,
     length = length,
     file = file
 )

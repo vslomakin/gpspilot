@@ -5,13 +5,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.w3c.dom.*
 import java.io.File
+import java.util.*
 import javax.xml.parsers.DocumentBuilder
 
 
 data class Gpx(
     val name: String,
     val wayPoints: List<WayPoint>,
-    val track: List<LatLng>
+    val track: List<LatLng>,
+    val creation: Date
 ) {
     data class WayPoint(val name: String?, val location: LatLng)
 }
@@ -26,12 +28,21 @@ suspend fun DocumentBuilder.parseGps(file: File): Gpx? = withContext(Dispatchers
     val root = document?.documentElement
 
     val name = root?.name()
-    val wayPoints = root?.elementsByName("wpt") { it.wayPoint() }
-    val trackPoints = root?.elementsByName("trkpt") { it.latLng() }
 
-    if (name != null && wayPoints != null && trackPoints != null && trackPoints.isNotEmpty()) {
-        Gpx(name, wayPoints, trackPoints)
-    } else null
+    val wayPointNodes = root?.getElementsByTagName("wpt")?.nodes()
+    val wayPoints = wayPointNodes?.mapNodes { it.wayPoint() }
+
+    val trackNodes = root?.getElementsByTagName("trkpt")?.nodes()
+    val trackPoints = trackNodes?.mapNodes { it.latLng() }
+
+    val createdTime = trackNodes?.lastOrNull()?.childByName("time")?.textContent
+    val created = createdTime?.parseDate("yyyy-MM-dd'T'HH:mm:ss")
+
+    if (name != null && wayPoints != null && trackPoints != null && created != null && trackPoints.isNotEmpty()) {
+        Gpx(name, wayPoints, trackPoints, created)
+    } else {
+        null
+    }
 }
 
 private fun Element.name(): String? {
@@ -69,9 +80,21 @@ private fun <T : Any> Element.elementsByName(name: String, map: (Node) -> T?): L
     return resList.takeIf { it.size == node.length }
 }
 
-private fun NodeList.nodes(): Sequence<Node> {
+/**
+ * Map each node with [mapper].
+ * If [mapper] returns `null` - it means node is invalid, `null` will be returned.
+ */
+private fun <T : Any> List<Node>.mapNodes(mapper: (Node) -> T?): List<T>? {
+    val resultList = mapNotNull { mapper(it) }.toList()
+
+    // If sizes of source and result lists aren't equal -
+    // it means some of node hasn't been properly parsed, just return null
+    return resultList.takeIf { it.size == size }
+}
+
+private fun NodeList.nodes(): List<Node> {
     val indexes = 0 until length
-    return indexes.asSequence().map { item(it) }
+    return indexes.asSequence().map { item(it) }.toList()
 }
 
 private fun NamedNodeMap.doubleAttr(name: String?) = getNamedItem(name)?.textContent?.toDoubleOrNull()

@@ -142,8 +142,7 @@ class MainActivityVM(
     private fun createNewFile(time: Date): File? {
         val dir = context.routeFolder
         if (dir?.mkdirs() == true) i { "Route dir created." }
-        val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault())
-        val fname = formatter.format(time) + ".gpx"
+        val fname = time.format("yyyy-MM-dd'T'HH:mm:ss.SSS") + ".gpx"
         return dir?.append(fname)
     }
 
@@ -153,7 +152,6 @@ class MainActivityVM(
             uiReq.offer(Toast(R.string.external_storage_unavailable, Toast.Length.LONG))
             return
         }
-        // TODO: test case when file is broken
 
         // TODO: show some kind of progress while file saving
         launch(Dispatchers.IO) {
@@ -165,7 +163,7 @@ class MainActivityVM(
                     val route = UnsavedRoute(
                         id = null,
                         name = gpx.name,
-                        created = time,
+                        created = gpx.creation,
                         length = gpx.track.distance().roundToLong(),
                         file = file
                     )
