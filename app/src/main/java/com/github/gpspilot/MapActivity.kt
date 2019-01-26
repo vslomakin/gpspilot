@@ -297,10 +297,7 @@ class MapVM(
 
     private val run = CompletableDeferred<Id>()
 
-    fun run(routeId: Id): Boolean {
-        handleLocations()
-        return run.complete(routeId)
-    }
+    fun run(routeId: Id): Boolean = run.complete(routeId)
 
     private val route: Deferred<Gpx?> = async {
         val id = run.await()
@@ -503,24 +500,10 @@ class MapVM(
     }
 
 
-    private val locationPermissionGranted = CompletableDeferred<Unit>()
 
-    private fun handleLocations() {
-        if (ctx.isPermissionGranted(LOCATION_PERMISSION)) {
-            locationPermissionGranted.complete()
-        } else {
-            uiReq.offer(UiRequest.Permission(LOCATION_PERMISSION))
-        }
-    }
+    private val permissionResults = BroadcastChannel<List<PermissionResult>>(1)
 
-    fun onPermissionResult(results: List<PermissionResult>) {
-        val locationGranted = results.any { it.permission == LOCATION_PERMISSION && it.granted }
-        if (locationGranted) {
-            handleLocations()
-        } else {
-            uiReq.offer(UiRequest.Toast(R.string.location_permission_denied, Length.SHORT))
-        }
-    }
+    fun onPermissionResult(results: List<PermissionResult>) = permissionResults.offer(results)
 
     private val _locations = BroadcastChannel<Location>(Channel.CONFLATED)
     fun locations() = _locations.openSubscription()
@@ -529,27 +512,20 @@ class MapVM(
     fun locationIsAccurate() = locationIsAccurate.openSubscription()
 
     init {
-        // Handle device location
-        launch(Dispatchers.Main) {
-            locationPermissionGranted.join()
-            handleSpeed()
-            i { "Location permission granted, requesting location update..." }
-            // TODO: deactivate by stop
-            val channel = locationProviderClient.locations {
-                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-                interval = 500L
-                fastestInterval = 50L
-            }
-            channel.consumeEach { location ->
-                location?.let { _locations.send(it) }
-                locationIsAccurate.send(location.isAccurate)
-            }
-        }
-    }
+        val permissionGranted = launch(Dispatchers.Main) {
+            run.join()
 
-    private fun CoroutineScope.handleSpeed() {
+            if (! ctx.isPermissionGranted(LOCATION_PERMISSION)) {
+                uiReq.send(UiRequest.Permission(LOCATION_PERMISSION))
+                permissionResults.openSubscription().first { it.isLocationPermissionGranted == true }
+            }
+            i { "Location permission granted" }
+        }
+
+        // Speed
         val kmPerHourTemplate = "%.1f " + ctx.getString(R.string.kmPerHour)
         launch {
+            permissionGranted.join()
             val speeds = locations()
                 .map(coroutineContext) { it.speed.meterPerSecToKmPerHour() }
                 .broadcast(coroutineContext, Channel.CONFLATED)
@@ -570,6 +546,30 @@ class MapVM(
                     speeds.openSubscription().average(coroutineContext).consumeEach { speed ->
                         averageSpeed.value = kmPerHourTemplate.format(speed)
                     }
+                }
+            }
+        }
+
+        // Broadcast locations
+        launch(Dispatchers.Main) {
+            permissionGranted.join()
+            // TODO: deactivate by stop
+            val channel = locationProviderClient.locations {
+                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+                interval = 500L
+                fastestInterval = 50L
+            }
+            channel.consumeEach { location ->
+                location?.let { _locations.send(it) }
+                locationIsAccurate.send(location.isAccurate)
+            }
+        }
+
+        // Location permission isn't granted
+        launch {
+            permissionResults.consumeEach { results ->
+                if (results.isLocationPermissionGranted == false) {
+                    uiReq.send(UiRequest.Toast(R.string.location_permission_denied, Length.SHORT))
                 }
             }
         }
@@ -705,4 +705,10 @@ private val MapVM.WayPoint.color: Float get() = when (type) {
     MapVM.WayPoint.Type.PASSED -> BitmapDescriptorFactory.HUE_GREEN
     MapVM.WayPoint.Type.TARGET -> BitmapDescriptorFactory.HUE_YELLOW
     MapVM.WayPoint.Type.REMAINING -> BitmapDescriptorFactory.HUE_ORANGE // TODO: should be white
+}
+
+
+private inline val List<PermissionResult>.isLocationPermissionGranted: Boolean? get() {
+    val locationResult = firstOrNull { it.permission == LOCATION_PERMISSION }
+    return locationResult?.granted
 }
