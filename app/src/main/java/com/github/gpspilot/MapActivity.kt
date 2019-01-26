@@ -608,7 +608,7 @@ class MapActivityVM(
     }
 
 
-    private val longClicks = BroadcastChannel<Pair<LatLng, Projection>>(Channel.CONFLATED) // TODO: may be capacity should be 1?
+    private val longClicks = BroadcastChannel<Pair<LatLng, Projection>>(1)
 
     fun onMapLongClick(clickLocation: LatLng, projection: Projection) {
         longClicks.offer(clickLocation to projection)
