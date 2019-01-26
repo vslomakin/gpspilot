@@ -320,10 +320,21 @@ class MapVM(
             }
         }
 
+        // Entire track showing
+        launch {
+            val track = route.awaitNotEmptyTrack().track
+            track.bounds()?.let { bounds ->
+                showEntireTrack.openSubscription().startWith(coroutineContext, Unit).consumeEach {
+                    cameraBounds.send(bounds)
+                }
+            } ?: run {
+                e { "Bounds are not returned." }
+            }
+        }
+
         launch {
             val route = route.awaitNotEmptyTrack()
 
-            handleEntireTrackShowing(route)
             handleTrackPosition(route)
             handleTrack(route)
             handleLongClicks(route)
@@ -342,17 +353,6 @@ class MapVM(
             } else {
                 w { "WayPoints not found." }
             }
-        }
-    }
-
-
-    private fun CoroutineScope.handleEntireTrackShowing(route: Gpx) = launch {
-        route.track.bounds()?.let { bounds ->
-            showEntireTrack.openSubscription().startWith(coroutineContext, Unit).consumeEach {
-                cameraBounds.send(bounds)
-            }
-        } ?: run {
-            e { "Bounds are not returned." }
         }
     }
 
