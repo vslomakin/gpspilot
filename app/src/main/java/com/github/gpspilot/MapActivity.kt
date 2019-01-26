@@ -117,7 +117,7 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
 
     private fun GoogleMap.handleWayPoints() {
         // Waypoint projections
-        val projectionIcon = BitmapDescriptorFactory.fromResource(R.drawable.ic_wp_projection)
+        val projectionIcon = BitmapDescriptorFactory.fromResource(R.drawable.ic_wp_projection) // TODO: use proper drawable
         handleMarkers(
             markerLists = vm.wpProjections(),
             setupOptions = { projection ->
@@ -332,10 +332,31 @@ class MapVM(
             }
         }
 
+        // Track position
+        launch {
+            val track = route.awaitNotEmptyTrack().track
+            launch {
+                var previousPosition: Int? = null
+                locations().consumeEach { location ->
+                    // Track is never empty, so result can't be null, we can safely cast
+                    val position = track.findNearestPosition(location)!!
+                    val distance = track[position].distanceTo(location)
+                    val nearTrack = distance <= MIN_DISTANCE
+                    if (nearTrack) {
+                        if (position != previousPosition) {
+                            d { "Current point: $position, distance: $distance" }
+                            currentTrackPositions.send(position)
+                            previousPosition = position
+                        }
+                    }
+                    this@MapVM.nearTrack.send(nearTrack)
+                }
+            }
+        }
+
         launch {
             val route = route.awaitNotEmptyTrack()
 
-            handleTrackPosition(route)
             handleTrack(route)
             handleLongClicks(route)
             handleRemainingPanelVisibility()
@@ -352,27 +373,6 @@ class MapVM(
                 handleWayPoints(route, projectionPositions)
             } else {
                 w { "WayPoints not found." }
-            }
-        }
-    }
-
-    private fun CoroutineScope.handleTrackPosition(route: Gpx) {
-        val track = route.track
-        launch {
-            var previousPosition: Int? = null
-            locations().consumeEach { location ->
-                // Track is never empty, so result can't be null, we can safely cast
-                val position = track.findNearestPosition(location)!!
-                val distance = track[position].distanceTo(location)
-                val nearTrack = distance <= MIN_DISTANCE
-                if (nearTrack) {
-                    if (position != previousPosition) {
-                        d { "Current point: $position, distance: $distance" }
-                        currentTrackPositions.send(position)
-                        previousPosition = position
-                    }
-                }
-                this@MapVM.nearTrack.send(nearTrack)
             }
         }
     }
