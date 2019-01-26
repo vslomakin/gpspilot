@@ -295,11 +295,15 @@ class MapVM(
 
 
 
-    private val routeId = CompletableDeferred<Id>()
-    fun run(routeId: Id) = this.routeId.complete(routeId)
+    private val run = CompletableDeferred<Id>()
+
+    fun run(routeId: Id): Boolean {
+        handleLocations()
+        return run.complete(routeId)
+    }
 
     private val route: Deferred<Gpx?> = async {
-        val id = routeId.await()
+        val id = run.await()
         repo.openRoute(id)?.run {
             documentBuilderFactory.parseGps(file)
         }
@@ -318,8 +322,6 @@ class MapVM(
 
         launch {
             val route = route.awaitNotEmptyTrack()
-
-            handleLocations()
 
             handleEntireTrackShowing(route)
             handleTrackPosition(route)
