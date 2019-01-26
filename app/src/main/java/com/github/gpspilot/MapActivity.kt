@@ -67,7 +67,9 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
             .also { it.vm = vm }
 
         handleUiRequests(vm.uiRequests())
-        vm.run(routePath)
+        vm.run(routePath).also {
+            i { "View model launched: $it." }
+        }
 
         // TODO: try to setup map with route before initialization
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
@@ -292,19 +294,20 @@ class MapVM(
     fun cameraBounds() = cameraBounds.openSubscription()
 
 
-    private var launched = false
 
-    fun run(routeId: Id) {
-        if (launched) {
-            w { "Map view model already launched." }
-            return
+    private val routeId = CompletableDeferred<Id>()
+    fun run(routeId: Id) = this.routeId.complete(routeId)
+
+    private val route: Deferred<Gpx?> = async {
+        val id = routeId.await()
+        repo.openRoute(id)?.run {
+            documentBuilderFactory.parseGps(file)
         }
-        launched = true
+    }
 
+    init {
         launch {
-            val route = repo.openRoute(routeId)?.run {
-                documentBuilderFactory.parseGps(file)
-            }
+            val route = route.await()
 
             route ?: run {
                 uiReq.send(UiRequest.Toast(R.string.can_not_parse_route, Length.LONG))
@@ -341,6 +344,7 @@ class MapVM(
             }
         }
     }
+
 
     private fun CoroutineScope.handleEntireTrackShowing(route: Gpx) = launch {
         route.track.bounds()?.let { bounds ->
