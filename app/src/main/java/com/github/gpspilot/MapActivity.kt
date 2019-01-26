@@ -294,37 +294,37 @@ class MapVM(
     fun cameraBounds() = cameraBounds.openSubscription()
 
 
-
     private val run = CompletableDeferred<Id>()
-
     fun run(routeId: Id): Boolean = run.complete(routeId)
 
-    private val route: Deferred<Gpx?> = async {
-        val id = run.await()
-        repo.openRoute(id)?.run {
-            documentBuilderFactory.parseGps(file)
-        }
-    }
-
-    private val projection: Deferred<List<Int>> = async {
-        val route = this@MapVM.route.awaitNotEmptyTrack()
-        if (route.wayPoints.isNotEmpty()) {
-            lateinit var projectionPositions: List<Int>
-            val projectionTime = measureTimeMillis {
-                projectionPositions = route.getWayPointsProjections()
-            }
-            i { "Projection calculated for $projectionTime ms." }
-            projectionPositions
-        } else {
-            w { "WayPoints not found." }
-            infiniteDeferred.await()
-        }
-    }
 
     init {
+        val routeAsync: Deferred<Gpx?> = async {
+            val id = run.await()
+            repo.openRoute(id)?.run {
+                documentBuilderFactory.parseGps(file)
+            }
+        }
+
+        val projectionAsync: Deferred<List<Int>> = async {
+            val route = routeAsync.awaitNotEmptyTrack()
+            if (route.wayPoints.isNotEmpty()) {
+                lateinit var projectionPositions: List<Int>
+                val projectionTime = measureTimeMillis {
+                    projectionPositions = route.getWayPointsProjections()
+                }
+                i { "Projection calculated for $projectionTime ms." }
+                projectionPositions
+            } else {
+                w { "WayPoints not found." }
+                infiniteDeferred.await()
+            }
+        }
+
+
         // Handle case when track not loaded properly
         launch {
-            val route = this@MapVM.route.await()
+            val route = routeAsync.await()
             if (route == null || route.track.isEmpty()) {
                 uiReq.send(UiRequest.Toast(R.string.can_not_parse_route, Length.LONG))
                 uiReq.send(UiRequest.FinishActivity)
@@ -334,7 +334,7 @@ class MapVM(
 
         // Entire track showing
         launch {
-            val track = route.awaitNotEmptyTrack().track
+            val track = routeAsync.awaitNotEmptyTrack().track
             track.bounds()?.let { bounds ->
                 showEntireTrack.openSubscription().startWith(coroutineContext, Unit).consumeEach {
                     cameraBounds.send(bounds)
@@ -346,7 +346,7 @@ class MapVM(
 
         // Track position
         launch {
-            val track = route.awaitNotEmptyTrack().track
+            val track = routeAsync.awaitNotEmptyTrack().track
             launch {
                 var previousPosition: Int? = null
                 locations().consumeEach { location ->
@@ -368,7 +368,7 @@ class MapVM(
 
         // Track polylines
         launch {
-            val track = route.awaitNotEmptyTrack().track
+            val track = routeAsync.awaitNotEmptyTrack().track
             launch {
                 consumeLatest(
                     channel1 = currentTrackPositions.openSubscription().startWith(coroutineContext, 0),
@@ -391,8 +391,8 @@ class MapVM(
 
         // Waypoint projections
         launch {
-            val route = this@MapVM.route.awaitNotEmptyTrack()
-            val projectionPositions = projection.await()
+            val route = routeAsync.awaitNotEmptyTrack()
+            val projectionPositions = projectionAsync.await()
             val projection = route.track.getElements(projectionPositions)
 
             val targetPositions = targetTrackPosition.openSubscription().distinctUntilChanged(coroutineContext)
@@ -408,8 +408,8 @@ class MapVM(
 
         // Waypoints
         launch {
-            val wayPoints = route.awaitNotEmptyTrack().wayPoints
-            val projectionPositions = projection.await()
+            val wayPoints = routeAsync.awaitNotEmptyTrack().wayPoints
+            val projectionPositions = projectionAsync.await()
 
             // By default we start from 0 position
             val trackPosition = currentTrackPositions.openSubscription().startWith(coroutineContext, 0)
@@ -441,6 +441,30 @@ class MapVM(
             }
         }
 
+        // Handle long clicks
+        val clickDistance = ctx.resources.getDimensionPixelSize(R.dimen.track_click_boundaries)
+        launch {
+            val track = routeAsync.awaitNotEmptyTrack().track
+            longClicks.consumeEach { (clickLocation, projection) ->
+                // Track is never empty, so result can't be null, we can safely cast
+                val nearestPos = track.findNearestPosition(clickLocation)!!
+                val nearest = track[nearestPos]
+
+                lateinit var clickPoint: Point
+                lateinit var nearestPoint: Point
+                withContext(Dispatchers.Main) {
+                    clickPoint = projection.toScreenLocation(clickLocation)
+                    nearestPoint = projection.toScreenLocation(nearest)
+                }
+                val distancePx = clickPoint distanceTo nearestPoint
+                i { "Clicked on map: $clickPoint. Distance: ${distancePx}px (allowed ${clickDistance}px)." }
+                if (distancePx <= clickDistance) {
+                    targetWayPoints.send(null)
+                    targetTrackPosition.send(nearestPos)
+                }
+            }
+        }
+
 
 
         // Remaining panel visibility
@@ -452,7 +476,7 @@ class MapVM(
 
         // Remaining panel data
         launch {
-            val track = route.awaitNotEmptyTrack().track
+            val track = routeAsync.awaitNotEmptyTrack().track
             lateinit var timeTemplate: String
             lateinit var distanceTemplate: String
             withContext(Dispatchers.Main) {
@@ -512,6 +536,7 @@ class MapVM(
     fun locationIsAccurate() = locationIsAccurate.openSubscription()
 
     init {
+        // Handle location permission
         val permissionGranted = launch(Dispatchers.Main) {
             run.join()
 
@@ -588,33 +613,6 @@ class MapVM(
     fun onMapLongClick(clickLocation: LatLng, projection: Projection) {
         longClicks.offer(clickLocation to projection)
     }
-
-    init {
-        // Handle long clicks
-        val clickDistance = ctx.resources.getDimensionPixelSize(R.dimen.track_click_boundaries)
-        launch {
-            val track = route.awaitNotEmptyTrack().track
-            longClicks.consumeEach { (clickLocation, projection) ->
-                // Track is never empty, so result can't be null, we can safely cast
-                val nearestPos = track.findNearestPosition(clickLocation)!!
-                val nearest = track[nearestPos]
-
-                lateinit var clickPoint: Point
-                lateinit var nearestPoint: Point
-                withContext(Dispatchers.Main) {
-                    clickPoint = projection.toScreenLocation(clickLocation)
-                    nearestPoint = projection.toScreenLocation(nearest)
-                }
-                val distancePx = clickPoint distanceTo nearestPoint
-                i { "Clicked on map: $clickPoint. Distance: ${distancePx}px (allowed ${clickDistance}px)." }
-                if (distancePx <= clickDistance) {
-                    targetWayPoints.send(null)
-                    targetTrackPosition.send(nearestPos)
-                }
-            }
-        }
-    }
-
 
     fun onClickMarker(number: Int) {
         targetWayPoints.offer(number)
