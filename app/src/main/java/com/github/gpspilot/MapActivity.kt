@@ -320,14 +320,12 @@ class MapVM(
                 return@launch
             }
 
+            handleEntireTrackShowing(route)
             handleTrackPosition(route)
             handleTrack(route)
             handleLongClicks(route)
             handleRemainingPanelVisibility()
             handleRemainingTime(route)
-
-            // Track is never empty, so we safely cast to not null
-            cameraBounds.send(route.track.bounds()!!)
 
             if (route.wayPoints.isNotEmpty()) {
                 lateinit var projectionPositions: List<Int>
@@ -341,6 +339,16 @@ class MapVM(
             } else {
                 w { "WayPoints not found." }
             }
+        }
+    }
+
+    private fun CoroutineScope.handleEntireTrackShowing(route: Gpx) = launch {
+        route.track.bounds()?.let { bounds ->
+            showEntireTrack.openSubscription().startWith(coroutineContext, Unit).consumeEach {
+                cameraBounds.send(bounds)
+            }
+        } ?: run {
+            e { "Bounds are not returned." }
         }
     }
 
@@ -605,6 +613,13 @@ class MapVM(
 
     fun onClickMarker(number: Int) {
         targetWayPoints.offer(number)
+    }
+
+
+    private val showEntireTrack = BroadcastChannel<Unit>(Channel.CONFLATED)
+
+    fun onClickShowEntireTrack() {
+        showEntireTrack.offer()
     }
 }
 

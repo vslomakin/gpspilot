@@ -16,4 +16,5 @@
     <string name="remaining">Remaining:</string>
     <string name="arriving">Arriving:</string>
     <string name="distance">Distance:</string>
+    <string name="show_entire_track">Show entire track</string>
 </resources>
