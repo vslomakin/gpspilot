@@ -110,8 +110,9 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
     }
 
     private fun GoogleMap.handleCameraBounds() = launch {
+        val padding = resources.getDimensionPixelOffset(R.dimen.map_bounds_padding)
         vm.cameraBounds().consumeEach { bounds ->
-            moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 50)) // TODO: fix padding
+            moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
         }
     }
 
