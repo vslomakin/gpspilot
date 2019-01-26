@@ -118,7 +118,12 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
 
     private fun GoogleMap.handleWayPoints() {
         // Waypoint projections
-        val projectionIcon = BitmapDescriptorFactory.fromResource(R.drawable.ic_wp_projection) // TODO: use proper drawable
+        val projectionIcon = descriptor(R.drawable.ic_waypoint_projection) ?: run {
+            e { "Projection icons was not loaded!" }
+            longToast(R.string.error_occurred)
+            finish()
+            return
+        }
         handleMarkers(
             markerLists = vm.wpProjections(),
             setupOptions = { projection ->
