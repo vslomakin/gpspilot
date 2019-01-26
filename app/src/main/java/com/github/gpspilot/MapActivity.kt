@@ -446,7 +446,6 @@ class MapVM(
         launch {
             val route = route.awaitNotEmptyTrack()
 
-            handleLongClicks(route)
             handleRemainingPanelVisibility()
             handleRemainingTime(route)
         }
@@ -592,11 +591,11 @@ class MapVM(
         longClicks.offer(clickLocation to projection)
     }
 
-    private val clickDistance = ctx.resources.getDimensionPixelSize(R.dimen.track_click_boundaries)
-
-    private fun CoroutineScope.handleLongClicks(route: Gpx) {
-        val track = route.track
+    init {
+        // Handle long clicks
+        val clickDistance = ctx.resources.getDimensionPixelSize(R.dimen.track_click_boundaries)
         launch {
+            val track = route.awaitNotEmptyTrack().track
             longClicks.consumeEach { (clickLocation, projection) ->
                 // Track is never empty, so result can't be null, we can safely cast
                 val nearestPos = track.findNearestPosition(clickLocation)!!
@@ -617,7 +616,6 @@ class MapVM(
             }
         }
     }
-
 
 
     fun onClickMarker(number: Int) {
