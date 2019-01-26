@@ -23,7 +23,7 @@ import java.io.File
 import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.*
-import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.parsers.DocumentBuilder
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.roundToLong
 
@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 class MainActivityVM(
     private val context: Application,
     private val repo: Repository,
-    private val documentBuilderFactory: DocumentBuilderFactory
+    private val documentBuilder: DocumentBuilder
 ) : CoroutineViewModel() {
 
     private val uiReq = BroadcastChannel<UiRequest>(1)
@@ -160,7 +160,7 @@ class MainActivityVM(
             val copied = context.copyUriToFile(uri, file)
             if (copied) {
                 i { "New route saved at: $file." }
-                val gpx = documentBuilderFactory.parseGps(file)
+                val gpx = documentBuilder.parseGps(file)
                 if (gpx != null) {
                     val route = UnsavedRoute(
                         id = null,

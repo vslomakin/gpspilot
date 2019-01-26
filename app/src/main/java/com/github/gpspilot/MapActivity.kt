@@ -30,7 +30,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.*
 import org.koin.android.viewmodel.ext.android.viewModel
 import w
-import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.parsers.DocumentBuilder
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.min
 import kotlin.math.roundToLong
@@ -251,7 +251,7 @@ private const val UNKNOWN_SYMBOL = "-"
 @ExperimentalCoroutinesApi
 class MapActivityVM(
     private val ctx: Application,
-    private val documentBuilderFactory: DocumentBuilderFactory,
+    private val documentBuilder: DocumentBuilder,
     private val locationProviderClient: FusedLocationProviderClient,
     private val repo: Repository
 ) : CoroutineViewModel() {
@@ -308,7 +308,7 @@ class MapActivityVM(
         val routeAsync: Deferred<Gpx?> = async {
             val id = run.await()
             repo.openRoute(id)?.run {
-                documentBuilderFactory.parseGps(file)
+                documentBuilder.parseGps(file)
             }
         }
 

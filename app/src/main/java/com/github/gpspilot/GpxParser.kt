@@ -5,7 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.w3c.dom.*
 import java.io.File
-import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.parsers.DocumentBuilder
 
 
 data class Gpx(
@@ -16,10 +16,9 @@ data class Gpx(
     data class WayPoint(val name: String?, val location: LatLng)
 }
 
-suspend fun DocumentBuilderFactory.parseGps(file: File): Gpx? = withContext(Dispatchers.IO) {
-    val builder = newDocumentBuilder() // TODO: use shared instance?
+suspend fun DocumentBuilder.parseGps(file: File): Gpx? = withContext(Dispatchers.IO) {
     val document: Document? = try {
-        builder.parse(file)
+        parse(file)
     } catch (e: Exception) {
         e logE { "Error occurs during file $file parsing." }
         null

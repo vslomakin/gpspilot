@@ -17,7 +17,7 @@ fun Application.startDi() = startKoin(
 )
 
 private fun module() = module {
-    single { DocumentBuilderFactory.newInstance() }
+    single { DocumentBuilderFactory.newInstance().newDocumentBuilder() }
     single { LocationServices.getFusedLocationProviderClient(androidApplication()) }
     single { createDb(androidApplication()) }
     single { Repository(get()) }
