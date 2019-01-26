@@ -354,10 +354,30 @@ class MapVM(
             }
         }
 
+        // Track polylines
+        launch {
+            val track = route.awaitNotEmptyTrack().track
+            launch {
+                consumeLatest(
+                    channel1 = currentTrackPositions.openSubscription().startWith(coroutineContext, 0),
+                    channel2 = targetTrackPosition.openSubscription()
+                ) { currentPos, targetPos ->
+                    i { "Positions: current - $currentPos, target - $targetPos (track: ${track.size})." }
+                    val passedCount = (min(currentPos, targetPos)) + 1
+                    passedTracks.send(track.take(passedCount))
+
+                    val remaining = track.slice(currentPos..targetPos)
+                    remainingTracks.offer(remaining)
+
+                    val unused = track.slice(targetPos..track.lastPosition)
+                    unusedTracks.offer(unused)
+                }
+            }
+        }
+
         launch {
             val route = route.awaitNotEmptyTrack()
 
-            handleTrack(route)
             handleLongClicks(route)
             handleRemainingPanelVisibility()
             handleRemainingTime(route)
@@ -373,26 +393,6 @@ class MapVM(
                 handleWayPoints(route, projectionPositions)
             } else {
                 w { "WayPoints not found." }
-            }
-        }
-    }
-
-    private fun CoroutineScope.handleTrack(route: Gpx) {
-        val track = route.track
-        launch {
-            consumeLatest(
-                channel1 = currentTrackPositions.openSubscription().startWith(coroutineContext, 0),
-                channel2 = targetTrackPosition.openSubscription()
-            ) { currentPos, targetPos ->
-                i { "Positions: current - $currentPos, target - $targetPos (track: ${track.size})." }
-                val passedCount = (min(currentPos, targetPos)) + 1
-                passedTracks.send(track.take(passedCount))
-
-                val remaining = track.slice(currentPos..targetPos)
-                remainingTracks.offer(remaining)
-
-                val unused = track.slice(targetPos..track.lastPosition)
-                unusedTracks.offer(unused)
             }
         }
     }
