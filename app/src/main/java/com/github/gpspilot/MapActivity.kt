@@ -391,6 +391,7 @@ class MapVM(
         }
 
 
+
         // Waypoint projections
         launch {
             val route = this@MapVM.route.awaitNotEmptyTrack()
@@ -443,58 +444,55 @@ class MapVM(
             }
         }
 
+
+
+        // Remaining panel visibility
         launch {
-            val route = route.awaitNotEmptyTrack()
-
-            handleRemainingPanelVisibility()
-            handleRemainingTime(route)
+            nearTrack.openSubscription().consumeEach {
+                remainingPanelVisibility.value = it
+            }
         }
-    }
 
-    private fun CoroutineScope.handleRemainingPanelVisibility() = launch {
-        nearTrack.openSubscription().consumeEach {
-            remainingPanelVisibility.value = it
-        }
-    }
+        // Remaining panel data
+        launch {
+            val track = route.awaitNotEmptyTrack().track
+            lateinit var timeTemplate: String
+            lateinit var distanceTemplate: String
+            withContext(Dispatchers.Main) {
+                timeTemplate = ctx.getString(R.string.time_template)
+                distanceTemplate = ctx.getString(R.string.km_template)
+            }
+            val arriveFormatter = "HH:mm".formatter()
+            whenNearTrack {
+                consumeLatest(
+                    currentTrackPositions.openSubscription(),
+                    targetTrackPosition.openSubscription(),
+                    locations().map { it.speed }.startWith(coroutineContext, 0f)
+                ) { currPos, targetPos, speed ->
+                    val remainingMeters = if (currPos < targetPos) {
+                        track.distance(currPos..targetPos)
+                    } else {
+                        0.0
+                    }
 
-    private fun CoroutineScope.handleRemainingTime(route: Gpx) = launch {
-        val track = route.track
-        lateinit var timeTemplate: String
-        lateinit var distanceTemplate: String
-        withContext(Dispatchers.Main) {
-            timeTemplate = ctx.getString(R.string.time_template)
-            distanceTemplate = ctx.getString(R.string.km_template)
-        }
-        val arriveFormatter = "HH:mm".formatter()
-        whenNearTrack {
-            consumeLatest(
-                currentTrackPositions.openSubscription(),
-                targetTrackPosition.openSubscription(),
-                locations().map { it.speed }.startWith(coroutineContext, 0f)
-            ) { currPos, targetPos, speed ->
-                val remainingMeters = if (currPos < targetPos) {
-                    track.distance(currPos..targetPos)
-                } else {
-                    0.0
+                    val remainingKm = remainingMeters.metersToKm()
+                    remainingDistance.value = distanceTemplate.format(remainingKm)
+
+                    val remainingSec = speed.takeIf { it > 0f }?.let {
+                        (remainingMeters / it).roundToLong()
+                    }
+
+                    remainingTime.value = remainingSec?.let { sec ->
+                        val h = sec.secToFullHour()
+                        val min = (sec - h.hourToSec()).secToFullMin()
+                        timeTemplate.format(h, min)
+                    } ?: UNKNOWN_SYMBOL
+
+                    arrivingTime.value = remainingSec?.takeIf { it > 0L }?.let { sec ->
+                        val arriveAtMs = sec.secToMs() + System.currentTimeMillis()
+                        arriveFormatter.format(arriveAtMs)
+                    } ?: UNKNOWN_SYMBOL
                 }
-
-                val remainingKm = remainingMeters.metersToKm()
-                remainingDistance.value = distanceTemplate.format(remainingKm)
-
-                val remainingSec = speed.takeIf { it > 0f }?.let {
-                    (remainingMeters / it).roundToLong()
-                }
-
-                remainingTime.value = remainingSec?.let { sec ->
-                    val h = sec.secToFullHour()
-                    val min = (sec - h.hourToSec()).secToFullMin()
-                    timeTemplate.format(h, min)
-                } ?: UNKNOWN_SYMBOL
-
-                arrivingTime.value = remainingSec?.takeIf { it > 0L }?.let { sec ->
-                    val arriveAtMs = sec.secToMs() + System.currentTimeMillis()
-                    arriveFormatter.format(arriveAtMs)
-                } ?: UNKNOWN_SYMBOL
             }
         }
     }
