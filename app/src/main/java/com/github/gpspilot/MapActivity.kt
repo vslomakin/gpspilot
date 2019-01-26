@@ -176,25 +176,41 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
     }
 
     private fun GoogleMap.showMyLocation() {
-        val descriptor = descriptor(R.drawable.arrow_green) ?: run {
+        val greenArrow = descriptor(R.drawable.arrow_green)
+        val redArrow = descriptor(R.drawable.arrow_red)
+        if (greenArrow == null || redArrow == null) {
             longToast(R.string.error_occurred)
             finish()
             e { "My location drawable hasn't been loaded!" }
             return
         }
+
+
         launch {
             var marker: Marker? = null
-            vm.locations().consumeEach { location ->
-                marker?.apply {
-                    position = location.toLatLng()
-                    rotation = location.bearing
-                } ?: run {
-                    marker = addMarker {
-                        position(location.toLatLng())
-                        rotation(location.bearing)
-                        flat(true)
-                        anchor(0.5f, 1f)
-                        icon(descriptor)
+            vm.locationIsAccurate().distinctUntilChanged(coroutineContext).consumeSeparately { isAccurate ->
+                i { "Accuracy changed: $isAccurate." }
+                // Accuracy changed, we need change location icon. For beginning remove previous marker:
+                marker?.remove()
+                marker = null
+
+                val icon = if (isAccurate) greenArrow else redArrow
+
+                // Now process location with new marker
+                vm.locations().consumeEach { location ->
+                    marker?.apply {
+                        // If marker already added - just change it's params
+                        position = location.toLatLng()
+                        rotation = location.bearing
+                    } ?: run {
+                        // If its first location - add new marker with new icon
+                        marker = addMarker {
+                            position(location.toLatLng())
+                            rotation(location.bearing)
+                            flat(true)
+                            anchor(0.5f, 1f)
+                            icon(icon)
+                        }
                     }
                 }
             }
@@ -473,12 +489,11 @@ class MapVM(
     }
 
 
-    private val _locationPermissionGranted = CompletableDeferred<Unit>()
-    val locationPermissionGranted: Job = _locationPermissionGranted
+    private val locationPermissionGranted = CompletableDeferred<Unit>()
 
     private fun handleLocations() {
         if (ctx.isPermissionGranted(LOCATION_PERMISSION)) {
-            _locationPermissionGranted.complete()
+            locationPermissionGranted.complete()
         } else {
             uiReq.offer(UiRequest.Permission(LOCATION_PERMISSION))
         }
@@ -496,6 +511,9 @@ class MapVM(
     private val _locations = BroadcastChannel<Location>(Channel.CONFLATED)
     fun locations() = _locations.openSubscription()
 
+    private val locationIsAccurate = BroadcastChannel<Boolean>(Channel.CONFLATED)
+    fun locationIsAccurate() = locationIsAccurate.openSubscription()
+
     init {
         // Handle device location
         launch(Dispatchers.Main) {
@@ -505,10 +523,13 @@ class MapVM(
             // TODO: deactivate by stop
             val channel = locationProviderClient.locations {
                 priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-                interval = 500
-                fastestInterval = 50
+                interval = 500L
+                fastestInterval = 50L
             }
-            channel.consumeEach { _locations.send(it) }
+            channel.consumeEach { location ->
+                location?.let { _locations.send(it) }
+                locationIsAccurate.send(location.isAccurate)
+            }
         }
     }
 
@@ -630,6 +651,10 @@ private inline fun Context.makeIcon(text: String, setup: IconGenerator.() -> Uni
     return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
 
+
+
+private inline val Location?.isAccurate: Boolean
+    get() = this?.run { accuracy < 10f } == true
 
 /**
  * Calculates projections of [Gpx.wayPoints] to [Gpx.track].

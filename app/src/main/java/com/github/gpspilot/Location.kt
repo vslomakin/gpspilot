@@ -2,10 +2,7 @@ package com.github.gpspilot
 
 import android.annotation.SuppressLint
 import android.location.Location
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.*
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import d
@@ -15,23 +12,42 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlin.math.*
 
 
+/**
+ * Request locations with parameters expected to be set in [requestScope]
+ * and returns channel with [Location]s.
+ * When locations became unavailable - `null` will be sent.
+ */
 @ExperimentalCoroutinesApi
 inline fun FusedLocationProviderClient.locations(
         requestScope: LocationRequest.() -> Unit
-): ReceiveChannel<Location> {
+): ReceiveChannel<Location?> {
     val request = LocationRequest().apply(requestScope)
     return locations(request)
 }
 
+/**
+ * Request locations and returns channel with [Location]s.
+ * When locations became unavailable - `null` will be sent.
+ */
 @ExperimentalCoroutinesApi
 @SuppressLint("MissingPermission")
 fun FusedLocationProviderClient.locations(
     request: LocationRequest
-): ReceiveChannel<Location> {
-    val channel = Channel<Location>(Channel.CONFLATED)
+): ReceiveChannel<Location?> {
+    val channel = Channel<Location?>(Channel.CONFLATED)
 
-    val callback = locationResultCallback { result ->
-        result?.locations?.forEach { channel.offer(it) }
+    val callback = object : LocationCallback() {
+        override fun onLocationResult(result: LocationResult?) {
+            result?.locations?.forEach {
+                channel.offer(it)
+            }
+        }
+
+        override fun onLocationAvailability(availability: LocationAvailability) {
+            if (! availability.isLocationAvailable) {
+                channel.offer(null)
+            }
+        }
     }
 
     requestLocationUpdates(request, callback, null)
@@ -42,17 +58,6 @@ fun FusedLocationProviderClient.locations(
     }
 
     return channel
-}
-
-/**
- * Just inline helper to remove noise.
- */
-private inline fun locationResultCallback(
-        crossinline onLocationResult: (LocationResult?) -> Unit
-): LocationCallback = object : LocationCallback() {
-    override fun onLocationResult(result: LocationResult?) {
-        onLocationResult(result)
-    }
 }
 
 
