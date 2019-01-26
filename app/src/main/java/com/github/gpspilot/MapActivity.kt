@@ -309,6 +309,21 @@ class MapVM(
         }
     }
 
+    private val projection: Deferred<List<Int>> = async {
+        val route = this@MapVM.route.awaitNotEmptyTrack()
+        if (route.wayPoints.isNotEmpty()) {
+            lateinit var projectionPositions: List<Int>
+            val projectionTime = measureTimeMillis {
+                projectionPositions = route.getWayPointsProjections()
+            }
+            i { "Projection calculated for $projectionTime ms." }
+            projectionPositions
+        } else {
+            w { "WayPoints not found." }
+            infiniteDeferred.await()
+        }
+    }
+
     init {
         // Handle case when track not loaded properly
         launch {
@@ -375,30 +390,11 @@ class MapVM(
             }
         }
 
+
+        // Waypoint projections
         launch {
-            val route = route.awaitNotEmptyTrack()
-
-            handleLongClicks(route)
-            handleRemainingPanelVisibility()
-            handleRemainingTime(route)
-
-            if (route.wayPoints.isNotEmpty()) {
-                lateinit var projectionPositions: List<Int>
-                val projectionTime = measureTimeMillis {
-                    projectionPositions = route.getWayPointsProjections()
-                }
-                i { "Projection calculated for $projectionTime ms." }
-
-                handleProjections(route, projectionPositions)
-                handleWayPoints(route, projectionPositions)
-            } else {
-                w { "WayPoints not found." }
-            }
-        }
-    }
-
-    private fun CoroutineScope.handleProjections(route: Gpx, projectionPositions: List<Int>) {
-        launch {
+            val route = this@MapVM.route.awaitNotEmptyTrack()
+            val projectionPositions = projection.await()
             val projection = route.track.getElements(projectionPositions)
 
             val targetPositions = targetTrackPosition.openSubscription().distinctUntilChanged(coroutineContext)
@@ -411,11 +407,12 @@ class MapVM(
                 wpProjections.send(result)
             }
         }
-    }
 
-    private fun CoroutineScope.handleWayPoints(route: Gpx, projectionPositions: List<Int>) {
-        val wayPoints = route.wayPoints
+        // Waypoints
         launch {
+            val wayPoints = route.awaitNotEmptyTrack().wayPoints
+            val projectionPositions = projection.await()
+
             // By default we start from 0 position
             val trackPosition = currentTrackPositions.openSubscription().startWith(coroutineContext, 0)
             // The last waypoint is target by default
@@ -444,6 +441,14 @@ class MapVM(
                 }
                 this@MapVM.wayPoints.send(result)
             }
+        }
+
+        launch {
+            val route = route.awaitNotEmptyTrack()
+
+            handleLongClicks(route)
+            handleRemainingPanelVisibility()
+            handleRemainingTime(route)
         }
     }
 
