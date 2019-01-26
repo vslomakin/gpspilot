@@ -51,7 +51,7 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
 
     override val coroutineContext: CoroutineContext by lifecycleCoroutineContext()
 
-    private val vm by viewModel<MapVM>()
+    private val vm by viewModel<MapActivityVM>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -243,7 +243,7 @@ private const val UNKNOWN_SYMBOL = "-"
 
 @ObsoleteCoroutinesApi
 @ExperimentalCoroutinesApi
-class MapVM(
+class MapActivityVM(
     private val ctx: Application,
     private val documentBuilderFactory: DocumentBuilderFactory,
     private val locationProviderClient: FusedLocationProviderClient,
@@ -361,7 +361,7 @@ class MapVM(
                             previousPosition = position
                         }
                     }
-                    this@MapVM.nearTrack.send(nearTrack)
+                    this@MapActivityVM.nearTrack.send(nearTrack)
                 }
             }
         }
@@ -437,7 +437,7 @@ class MapVM(
                         type = type
                     )
                 }
-                this@MapVM.wayPoints.send(result)
+                this@MapActivityVM.wayPoints.send(result)
             }
         }
 
@@ -699,10 +699,10 @@ private suspend fun Deferred<Gpx?>.awaitNotEmptyTrack(): Gpx {
 
 @ObsoleteCoroutinesApi
 @ExperimentalCoroutinesApi
-private val MapVM.WayPoint.color: Float get() = when (type) {
-    MapVM.WayPoint.Type.PASSED -> BitmapDescriptorFactory.HUE_GREEN
-    MapVM.WayPoint.Type.TARGET -> BitmapDescriptorFactory.HUE_YELLOW
-    MapVM.WayPoint.Type.REMAINING -> BitmapDescriptorFactory.HUE_ORANGE // TODO: should be white
+private val MapActivityVM.WayPoint.color: Float get() = when (type) {
+    MapActivityVM.WayPoint.Type.PASSED -> BitmapDescriptorFactory.HUE_GREEN
+    MapActivityVM.WayPoint.Type.TARGET -> BitmapDescriptorFactory.HUE_YELLOW
+    MapActivityVM.WayPoint.Type.REMAINING -> BitmapDescriptorFactory.HUE_ORANGE // TODO: should be white
 }
 
 

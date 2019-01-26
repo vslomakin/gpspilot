@@ -4,7 +4,7 @@
         xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <data>
-        <variable name="vm" type="com.github.gpspilot.MapVM" />
+        <variable name="vm" type="com.github.gpspilot.MapActivityVM" />
     </data>
 
     <androidx.constraintlayout.widget.ConstraintLayout
