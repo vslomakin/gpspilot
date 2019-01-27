@@ -13,6 +13,10 @@ import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
 
+/**
+ * Wrapper around [ViewModel] that implements [CoroutineScope].
+ * Internal job will be canceled by [ViewModel.onCleared].
+ */
 open class CoroutineViewModel(
     private val defCoroutineDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel(), CoroutineScope {
@@ -27,6 +31,10 @@ open class CoroutineViewModel(
 }
 
 
+/**
+ * Property delegate that creates [CoroutineContext] from [Lifecycle].
+ * [CoroutineContext]'s [Job] will be canceled when [Lifecycle] switches to [Lifecycle.State.DESTROYED] state.
+ */
 class LifecycleCoroutineContext(
     private val lifecycle: Lifecycle,
     private val defDispatcher: CoroutineDispatcher = Dispatchers.Main
@@ -69,6 +77,9 @@ fun LifecycleOwner.lifecycleCoroutineContext(
 fun CompletableDeferred<Unit>.complete() = complete(Unit)
 
 
+/**
+ * Suspend until [GoogleMap] will be available.
+ */
 suspend fun SupportMapFragment.awaitMap(): GoogleMap {
     return CompletableDeferred<GoogleMap>().run {
         getMapAsync { complete(it) }
@@ -103,7 +114,9 @@ suspend fun <T> ReceiveChannel<T>.consumeSeparately(
 }
 
 
-
+/**
+ * Skips the same values that comes one after another.
+ */
 @ObsoleteCoroutinesApi
 @ExperimentalCoroutinesApi
 fun <T> ReceiveChannel<T>.distinctUntilChanged(
@@ -137,73 +150,9 @@ fun <T> ReceiveChannel<T>.completeBy(
 }
 
 
-@ObsoleteCoroutinesApi
-@ExperimentalCoroutinesApi
-private class CoroutineLifecycleObserver(private val lifecycle: Lifecycle) : LifecycleObserver {
-    private val broadcast = ConflatedBroadcastChannel<Lifecycle.State>()
-    fun states() = broadcast.openSubscription().completeBy {
-        // DESTROYED - is the last state, complete channel after that
-        it == Lifecycle.State.DESTROYED
-    }
-
-    @OnLifecycleEvent(Lifecycle.Event.ON_ANY)
-    fun onAny() = broadcast.offer(lifecycle.currentState)
-}
-
 /**
- * Runs block in separate coroutine when lifecycle appears it least at state [state]
- * and cancels this coroutine when [state] is gone.
+ * Produces channel which initially sends [startItem] and then all elements from current channel.
  */
-@ExperimentalCoroutinesApi
-@ObsoleteCoroutinesApi
-suspend fun LifecycleOwner.runWhen(state: Lifecycle.State, block: suspend () -> Unit) {
-    val sourceCtx = coroutineContext
-    lifecycle.states { states ->
-        val shouldRun = states.map { it.isAtLeast(state) }.distinctUntilChanged(coroutineContext)
-        withContext(sourceCtx) {
-            shouldRun.consumeSeparately {
-                if (it) block()
-            }
-        }
-    }
-}
-
-@ObsoleteCoroutinesApi
-@ExperimentalCoroutinesApi
-private suspend fun Lifecycle.states(
-    scope: suspend (states: ReceiveChannel<Lifecycle.State>) -> Unit
-) {
-    withContext(Dispatchers.Main) {
-        val observer = CoroutineLifecycleObserver(this@states)
-        try {
-            addObserver(observer)
-            observer.states().consume {
-                scope(this)
-            }
-        } finally {
-            removeObserver(observer)
-        }
-    }
-}
-
-
-
-@ExperimentalCoroutinesApi
-fun <T> T.asChannel(ctx: CoroutineContext): ReceiveChannel<T> = GlobalScope.produce(ctx) {
-    send(this@asChannel)
-}
-
-@ObsoleteCoroutinesApi
-@ExperimentalCoroutinesApi
-fun <T> ReceiveChannel<T>.append(
-    another: ReceiveChannel<T>,
-    capacity: Int = 0,
-    ctx: CoroutineContext
-): ReceiveChannel<T> = GlobalScope.produce(ctx, capacity) {
-    consumeEach { send(it) }
-    another.consumeEach { send(it) }
-}
-
 @ExperimentalCoroutinesApi
 @ObsoleteCoroutinesApi
 fun <T> ReceiveChannel<T>.startWith(
@@ -216,6 +165,9 @@ fun <T> ReceiveChannel<T>.startWith(
 }
 
 
+/**
+ * [Deferred] that never completes. Userfull when it needed to suspend coroutine forever.
+ */
 val infiniteDeferred: Deferred<Nothing> by lazy { CompletableDeferred<Nothing>() }
 
 
@@ -229,6 +181,11 @@ fun isClosed(channel: ReceiveChannel<*>, vararg channels: ReceiveChannel<*>): Bo
     }
 }
 
+
+/**
+ * Calls [consumer] with latest values from [channel1] and [channel2].
+ * Initially it waits until values from all channels will be received.
+ */
 @ExperimentalCoroutinesApi
 suspend fun <T1, T2> consumeLatest(
     channel1: ReceiveChannel<T1>,
@@ -251,7 +208,10 @@ suspend fun <T1, T2> consumeLatest(
     }
 }
 
-
+/**
+* Calls [consumer] with latest values from [channel1], [channel2] and [channel3].
+* Initially it waits until values from all channels will be received.
+*/
 @ExperimentalCoroutinesApi
 suspend fun <T1, T2, T3> consumeLatest(
     channel1: ReceiveChannel<T1>,
@@ -278,7 +238,6 @@ suspend fun <T1, T2, T3> consumeLatest(
 }
 
 
-
 @ObsoleteCoroutinesApi
 @ExperimentalCoroutinesApi
 fun <T> ReceiveChannel<T>.broadcast(
@@ -289,6 +248,10 @@ fun <T> ReceiveChannel<T>.broadcast(
 }
 
 
+/**
+ * Calculate average value from all elements.
+ * Current average value will be recalculated and send for every item in current channel.
+ */
 @ObsoleteCoroutinesApi
 @ExperimentalCoroutinesApi
 fun ReceiveChannel<Float>.average(
