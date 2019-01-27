@@ -2,6 +2,7 @@ package com.github.gpspilot
 
 import android.app.Application
 import com.crashlytics.android.Crashlytics
+import com.crashlytics.android.core.CrashlyticsCore
 import io.fabric.sdk.android.Fabric
 import kotlinx.coroutines.GlobalScope
 import org.koin.android.ext.android.get
@@ -19,7 +20,8 @@ class App : Application() {
             Timber.plant(CrashlyticsTree())
         }
 
-        Fabric.with(this, Crashlytics())
+        val crashlyticsCore = CrashlyticsCore.Builder().disabled(BuildConfig.DEBUG).build()
+        Fabric.with(this, Crashlytics.Builder().core(crashlyticsCore).build())
 
         startDi()
 
