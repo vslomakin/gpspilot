@@ -5,12 +5,9 @@ package com.github.gpspilot
 import android.view.ViewGroup
 import androidx.annotation.LayoutRes
 import androidx.databinding.DataBindingUtil
-import androidx.databinding.ObservableList
-import androidx.databinding.ObservableList.OnListChangedCallback
 import androidx.databinding.ViewDataBinding
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
-import androidx.recyclerview.widget.RecyclerView.Adapter
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
 import e
 import kotlinx.coroutines.CoroutineScope
@@ -20,29 +17,23 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.launch
 
-abstract class DataBindingAdapter<T>(val list: ObservableList<T>) : Adapter<DataBindingViewHolder>() {
-
-    init { handleChangesFrom(list) }
-
-    override fun getItemCount(): Int = list.size
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int)
-            = DataBindingViewHolder(parent, viewType)
-
-    override fun onBindViewHolder(holder: DataBindingViewHolder, position: Int)
-            = holder.bind(list[position])
-
-    override fun getItemViewType(position: Int) = getLayout(list[position], position)
-
-    @LayoutRes abstract fun getLayout(item: T, position: Int): Int
-
-}
 
 class DataBindingViewHolder(val binding: ViewDataBinding) : ViewHolder(binding.root)
 
-private fun DataBindingViewHolder(parent: ViewGroup, viewType: Int): DataBindingViewHolder {
+/**
+ * Abstraction for item for auto binding.
+ * It assumed that layout has 'vm' bind variable, where this item will be assigned automatically.
+ * [layout] should contains layout id which will be automatically inflated.
+ * [id] is needed to distinct items in [DiffCallback].
+ */
+interface RecyclerViewItem {
+    @get:LayoutRes val layout: Int
+    val id: Any
+}
+
+private fun DataBindingViewHolder(parent: ViewGroup, layoutId: Int): DataBindingViewHolder {
     val binding = DataBindingUtil.inflate<ViewDataBinding>(
-            parent.context.inflater, viewType, parent, false
+            parent.context.inflater, layoutId, parent, false
     )
     return DataBindingViewHolder(binding)
 }
@@ -53,61 +44,9 @@ private fun <T> DataBindingViewHolder.bind(item: T) {
     // may be it needed to call executePendingBindings() here, take note if some problems will occur
 }
 
-
-private fun <T> Adapter<*>.handleChangesFrom(list: ObservableList<T>) {
-    list.addOnListChangedCallback(createAdapterNotifier())
-}
-
-private fun <T> Adapter<*>.createAdapterNotifier(): OnListChangedCallback<ObservableList<T>> {
-    return object : OnListChangedCallback<ObservableList<T>>() {
-        override fun onChanged(sender: ObservableList<T>?) {
-            notifyDataSetChanged()
-        }
-
-        override fun onItemRangeRemoved(sender: ObservableList<T>?, positionStart: Int, itemCount: Int) {
-            notifyItemRangeRemoved(positionStart, itemCount)
-        }
-
-        override fun onItemRangeMoved(sender: ObservableList<T>?, fromPosition: Int, toPosition: Int, itemCount: Int) {
-            notifyItemMoved(fromPosition, toPosition)
-        }
-
-        override fun onItemRangeInserted(sender: ObservableList<T>?, positionStart: Int, itemCount: Int) {
-            notifyItemRangeInserted(positionStart, itemCount)
-        }
-
-        override fun onItemRangeChanged(sender: ObservableList<T>?, positionStart: Int, itemCount: Int) {
-            notifyItemRangeChanged(positionStart, itemCount)
-        }
-    }
-}
-
-
-inline fun <T> buildsAdapter(
-        list: ObservableList<T>,
-        @LayoutRes crossinline getLayout: (item: T, position: Int) -> Int
-): DataBindingAdapter<T> = object : DataBindingAdapter<T>(list) {
-    override fun getLayout(item: T, position: Int) = getLayout(item, position)
-}
-
-inline fun <T> ObservableList<T>.createAdapter(
-        @LayoutRes crossinline getLayout: (item: T, position: Int) -> Int
-): DataBindingAdapter<T> = buildsAdapter(this, getLayout)
-
-inline fun <T> ObservableList<T>.createAdapter(
-        @LayoutRes crossinline getLayout: (item: T) -> Int
-): DataBindingAdapter<T> = buildsAdapter(this) { item, _ -> getLayout(item) }
-
-
-interface DataBindingListItem {
-    @get:LayoutRes val layout: Int
-}
-
-interface RecyclerViewItem : DataBindingListItem {
-    val id: Any
-}
-
-
+/**
+ * Implementation of [ListAdapter] which automatically binds data views.
+ */
 class DataBindingListAdapter : ListAdapter<RecyclerViewItem, DataBindingViewHolder>(DiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int)
@@ -121,6 +60,9 @@ class DataBindingListAdapter : ListAdapter<RecyclerViewItem, DataBindingViewHold
     operator fun get(pos: Int): RecyclerViewItem = getItem(pos)
 }
 
+/**
+ * Implementation of [DiffUtil.ItemCallback] of [RecyclerViewItem].
+ */
 private class DiffCallback : DiffUtil.ItemCallback<RecyclerViewItem>() {
 
     override fun areItemsTheSame(oldItem: RecyclerViewItem, newItem: RecyclerViewItem): Boolean {
@@ -138,6 +80,11 @@ private class DiffCallback : DiffUtil.ItemCallback<RecyclerViewItem>() {
 }
 
 
+/**
+ * Creates [DataBindingListAdapter] for [RecyclerViewItem],
+ * that automatically binds items from [items] using android DataBinding framework.
+ * [DiffUtil] is used under the hood for avery new list of items.
+ */
 @ObsoleteCoroutinesApi
 fun CoroutineScope.createListAdapter(items: ReceiveChannel<List<RecyclerViewItem>>): DataBindingListAdapter {
     val adapter = DataBindingListAdapter()
