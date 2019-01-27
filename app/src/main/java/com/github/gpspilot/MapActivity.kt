@@ -10,6 +10,7 @@ import android.location.Location
 import android.os.Bundle
 import android.view.View
 import androidx.annotation.DrawableRes
+import androidx.annotation.RawRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.drawable.toBitmap
 import androidx.databinding.DataBindingUtil
@@ -17,10 +18,7 @@ import com.github.gpspilot.UiRequest.Toast.Length
 import com.github.gpspilot.databinding.ActivityMapBinding
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.Projection
-import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.*
 import com.google.android.gms.maps.model.*
 import com.google.maps.android.ui.IconGenerator
 import d
@@ -65,7 +63,7 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
             return
         }
 
-        DataBindingUtil
+        val binding = DataBindingUtil
             .setContentView<ActivityMapBinding>(this, R.layout.activity_map)
             .also { it.vm = vm }
 
@@ -75,11 +73,19 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
         }
 
         // TODO: try to setup map with route before initialization
-        val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         // Setup Google Map
         launch {
+            // Setup fragment in coroutine to postpone this operation on the next frame
+            // and avoid UI freezing
+            val mapFragment = SupportMapFragment {
+                compassEnabled(false)
+            }
+            supportFragmentManager.performTransaction {
+                add(R.id.map, mapFragment)
+            }
+
             mapFragment.awaitMap().apply {
-                val styled = setMapStyle(MapStyleOptions.loadRawResourceStyle(this@MapActivity, R.raw.map_style))
+                val styled = setMapStyle(loadMapStyle(R.raw.map_style))
                 if (! styled) e { "Failed to parse map style json!" }
 
                 showMyLocation()
@@ -90,6 +96,8 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
 
                 setOnMapLongClickListener { vm.onMapLongClick(it, projection) }
                 setOnMarkerClickListener(::onMarkerClick)
+
+                binding.progressBar.visibility = View.GONE
             }
         }
     }
@@ -694,6 +702,16 @@ class MapActivityVM(
     }
 }
 
+
+@Suppress("FunctionName")
+private inline fun SupportMapFragment(setup: GoogleMapOptions.() -> Unit): SupportMapFragment {
+    val options = GoogleMapOptions().apply(setup)
+    return SupportMapFragment.newInstance(options)
+}
+
+private fun Context.loadMapStyle(@RawRes styleRes: Int): MapStyleOptions {
+    return MapStyleOptions.loadRawResourceStyle(this, styleRes)
+}
 
 private fun Context.descriptor(@DrawableRes resId: Int): BitmapDescriptor? {
     val bitmap = compatDrawable(resId)?.toBitmap()

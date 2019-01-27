@@ -15,6 +15,8 @@ import androidx.databinding.ObservableBoolean
 import androidx.databinding.ObservableField
 import androidx.databinding.ObservableFloat
 import androidx.databinding.ObservableInt
+import androidx.fragment.app.FragmentManager
+import androidx.fragment.app.FragmentTransaction
 import kotlin.reflect.KClass
 
 
@@ -109,3 +111,8 @@ inline val Context.inflater: LayoutInflater get() = LayoutInflater.from(this)
 
 
 fun Context.compatDrawable(@DrawableRes resId: Int): Drawable? = ContextCompat.getDrawable(this, resId)
+
+
+inline fun FragmentManager.performTransaction(body: FragmentTransaction.() -> Unit) {
+    beginTransaction().apply(body).commit()
+}
