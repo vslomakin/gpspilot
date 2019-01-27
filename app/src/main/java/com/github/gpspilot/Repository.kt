@@ -1,13 +1,11 @@
 package com.github.gpspilot
 
 import i
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.ObsoleteCoroutinesApi
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.map
-import kotlinx.coroutines.withContext
+import w
 import java.io.File
 import java.util.*
 import kotlin.coroutines.coroutineContext
@@ -18,7 +16,6 @@ const val ROUTES_COUNT = 10
 @ExperimentalCoroutinesApi
 @ObsoleteCoroutinesApi
 class Repository(private val _db: Database) {
-    // TODO: remove unnecessary routes
 
     private val routesUpdates = BroadcastChannel<Unit>(1)
 
@@ -45,7 +42,7 @@ class Repository(private val _db: Database) {
     suspend fun getRouteList(): ReceiveChannel<List<Route>> {
         return whenRoutesUpdated {
             readRoutes {
-                get(ROUTES_COUNT).map { it.fromEntity() }.apply {
+                get(limit = ROUTES_COUNT).map { it.fromEntity() }.apply {
                     i { "Loaded $size routes." }
                 }
             }
@@ -75,6 +72,23 @@ class Repository(private val _db: Database) {
             val id = insertOrReplace(route.toEntity(lastOpened))
             i { "New route inserted with id: $id." }
             routesUpdates.send()
+        }
+    }
+
+    fun CoroutineScope.removeUnnecessaryRoutes() = launch(Dispatchers.IO) {
+        val routes = readRoutes { get(offset = ROUTES_COUNT) }
+        if (routes.isNotEmpty()) {
+            writeRoutes {
+                val deleted = delete(routes.first().lastOpened)
+                i { "Deleted $deleted routes from DB." }
+            }
+            routes.forEach { route ->
+                val deleted = route.file.delete()
+                if (deleted) i { "Route ${route.file.path} deleted." }
+                else w { "Route ${route.file.path} hasn't been deleted!" }
+            }
+        } else {
+            i { "There's no unnecessary routes4." }
         }
     }
 }

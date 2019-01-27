@@ -40,14 +40,17 @@ typealias Id = Long
 )
 
 @Dao interface RoutesDao {
-    @Query("SELECT * FROM Routes ORDER BY lastOpened DESC LIMIT :count")
-    fun get(count: Int): List<RouteEntity>
+    @Query("SELECT * FROM Routes ORDER BY lastOpened DESC LIMIT :limit OFFSET :offset")
+    fun get(limit: Int = -1, offset: Int = 0): List<RouteEntity>
 
     @Query("SELECT * FROM Routes WHERE id = :id LIMIT 1")
     fun getById(id: Id): RouteEntity?
 
     @Insert(onConflict = REPLACE)
     fun insertOrReplace(route: RouteEntity): Id
+
+    @Query("DELETE FROM Routes WHERE lastOpened <= :maxLastOpened")
+    fun delete(maxLastOpened: Date): Int
 }
 
 
