@@ -2,7 +2,6 @@ package com.github.gpspilot
 
 import android.app.Activity
 import android.app.Application
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -20,9 +19,6 @@ import kotlinx.coroutines.channels.consumeEach
 import org.koin.android.viewmodel.ext.android.viewModel
 import w
 import java.io.File
-import java.io.InputStream
-import java.text.SimpleDateFormat
-import java.util.*
 import javax.xml.parsers.DocumentBuilder
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.roundToLong
@@ -125,7 +121,7 @@ class MainActivityVM(
         }
     }
 
-    private val dataFormatter = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+    private val dataFormatter = "dd.MM.yyyy".formatter()
 
     private fun Route.toVM() = MainActivityVM.RouteItem(
         id = id,
@@ -139,39 +135,18 @@ class MainActivityVM(
         openFileRequests.offer()
     }
 
-    private fun createNewFile(time: Date): File? {
-        val dir = context.routeFolder
-        if (dir?.mkdirs() == true) i { "Route dir created." }
-        val fname = time.format("yyyy-MM-dd'T'HH:mm:ss.SSS") + ".gpx"
-        return dir?.append(fname)
-    }
-
     fun onFileOpened(uri: Uri) {
-        val time = Date()
-        val file = createNewFile(time) ?: run {
-            uiReq.offer(Toast(R.string.external_storage_unavailable, Toast.Length.LONG))
-            return
-        }
-
-        // TODO: show some kind of progress while file saving
         launch(Dispatchers.IO) {
-            val copied = context.copyUriToFile(uri, file)
-            if (copied) {
+            context.saveRoute(uri)?.let { file ->
                 i { "New route saved at: $file." }
                 val gpx = documentBuilder.parseGps(file)
                 if (gpx != null) {
-                    val route = UnsavedRoute(
-                        id = null,
-                        name = gpx.name,
-                        created = gpx.creation,
-                        length = gpx.track.distance().roundToLong(),
-                        file = file
-                    )
+                    val route = UnsavedRoute(gpx, file)
                     repo.addRoute(route)
                 } else {
                     uiReq.send(Toast(R.string.can_not_parse_route, Toast.Length.SHORT))
                 }
-            } else {
+            } ?: run {
                 uiReq.send(Toast(R.string.error_occurred_during_file_saving, Toast.Length.LONG))
             }
         }
@@ -197,22 +172,12 @@ class MainActivityVM(
     }
 }
 
-private inline val Context.routeFolder: File?
-    get() = getExternalFilesDir(null)?.append("routes")
 
-private fun Context.copyUriToFile(uri: Uri, file: File): Boolean {
-    return try {
-        contentResolver.openInputStream(uri).use { input: InputStream ->
-            file.apply {
-                createNewFile()
-                outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-        }
-        true
-    } catch (e: Exception) {
-        e logE { "Can't copy file: $file." }
-        false
-    }
-}
+@Suppress("FunctionName")
+private fun UnsavedRoute(gpx: Gpx, file: File) = UnsavedRoute(
+    id = null,
+    name = gpx.name,
+    created = gpx.creation,
+    length = gpx.track.distance().roundToLong(),
+    file = file
+)
