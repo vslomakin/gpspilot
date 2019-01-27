@@ -43,6 +43,9 @@ private const val EXTRA_ROUTE_ID = "extra_route_id"
 class MapActivity : AppCompatActivity(), CoroutineScope {
 
     companion object {
+        /**
+         * Creates [Bundle] with date required to start [MapActivity].
+         */
         fun data(routeId: Id): Bundle = Bundle().apply {
             putLong(EXTRA_ROUTE_ID, routeId)
         }
@@ -73,6 +76,7 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
 
         // TODO: try to setup map with route before initialization
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
+        // Setup Google Map
         launch {
             mapFragment.awaitMap().apply {
                 val styled = setMapStyle(MapStyleOptions.loadRawResourceStyle(this@MapActivity, R.raw.map_style))
@@ -160,6 +164,11 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
         )
     }
 
+    /**
+     * Show markers from [markerLists]. When new list markers received - all previous markers will be removed.
+     * Before add new [Marker] [setupOptions] will be called where it possible to specify any marker options.
+     * After [Marker] created, [setupMarker] will be called (if set) set any arguments in marker.
+     */
     private fun <T> GoogleMap.handleMarkers(
         markerLists: ReceiveChannel<Collection<T>>,
         setupOptions: MarkerOptions.(marker: T) -> Unit,
@@ -253,8 +262,14 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
 
 private const val LOCATION_PERMISSION = Manifest.permission.ACCESS_FINE_LOCATION
 
+/**
+ * Minimum distance to track, when it switches to 'following' mode.
+ */
 private const val MIN_DISTANCE = 100
 
+/**
+ * Symbol that will be shown on statistic fields when no data available for current field.
+ */
 private const val UNKNOWN_SYMBOL = "-"
 
 @ObsoleteCoroutinesApi
@@ -284,28 +299,54 @@ class MapActivityVM(
     fun uiRequests() = uiReq.openSubscription()
 
 
+    /**
+     * Contains tracks before current position.
+     */
     private val passedTracks = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
     fun passedTracks() = passedTracks.openSubscription()
 
+    /**
+     * Contains tracks from current position to target.
+     */
     private val remainingTracks = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
     fun remainingTracks() = remainingTracks.openSubscription()
 
+    /**
+     * Contains tracks after target.
+     */
     private val unusedTracks = BroadcastChannel<List<LatLng>>(Channel.CONFLATED)
     fun unusedTracks() = unusedTracks.openSubscription()
 
 
+    /**
+     * Positions of point of track where we currently are.
+     */
     private val currentTrackPositions = BroadcastChannel<Int>(Channel.CONFLATED)
+    /**
+     * Whether we are near track in 'following mode' or not.
+     */
     private val nearTrack = BroadcastChannel<Boolean>(Channel.CONFLATED)
+    /**
+     * Position of current Waypoint. `null` if no waypoint selected.
+     */
     private val targetWayPoints = BroadcastChannel<Int?>(Channel.CONFLATED)
+    /**
+     * Position of point of track which is target.
+     */
     private val targetTrackPosition = BroadcastChannel<Int>(Channel.CONFLATED)
 
     private val wayPoints = BroadcastChannel<List<WayPoint>>(Channel.CONFLATED)
     fun wayPoints() = wayPoints.openSubscription()
 
+    /**
+     * Projections of waypoint on track.
+     */
     private val wpProjections = BroadcastChannel<Collection<LatLng>>(Channel.CONFLATED)
     fun wpProjections() = wpProjections.openSubscription()
 
-
+    /**
+     * Contains [LatLngBounds] where camera should move.
+     */
     private val cameraBounds = BroadcastChannel<LatLngBounds>(Channel.CONFLATED)
     fun cameraBounds() = cameraBounds.openSubscription()
 
@@ -540,7 +581,9 @@ class MapActivityVM(
     }
 
 
-
+    /**
+     * Whether activity is started.
+     */
     private val isStarted = BroadcastChannel<Boolean>(Channel.CONFLATED)
     fun setStarted(started: Boolean) = isStarted.offer(started)
 
@@ -548,6 +591,9 @@ class MapActivityVM(
     fun onPermissionResult(results: List<PermissionResult>) = permissionResults.offer(results)
 
     private val _locations = BroadcastChannel<Location>(Channel.CONFLATED)
+    /**
+     * Current [Location]s.
+     */
     fun locations() = _locations.openSubscription()
 
     private val locationIsAccurate = BroadcastChannel<Boolean>(Channel.CONFLATED)
