@@ -15,16 +15,30 @@ const val ROUTES_COUNT = 10
 
 @ExperimentalCoroutinesApi
 @ObsoleteCoroutinesApi
-class Repository(private val _db: Database) {
+class Repository(
+    /**
+     * Should not be called directly. Use [readRoutes] or [writeRoutes].
+     */
+    private val _db: Database
+) {
 
+    /**
+     * Needed to be aware when routes are updates.
+     */
     private val routesUpdates = BroadcastChannel<Unit>(1)
 
+    /**
+     * Should be used for read operation.
+     */
     private suspend inline fun <T> readRoutes(crossinline block: suspend RoutesDao.() -> T): T {
         return withContext(Dispatchers.IO) {
             _db.routes().block()
         }
     }
 
+    /**
+     * Should be used for write (write and read) operations.
+     */
     private suspend inline fun <T> writeRoutes(crossinline block: suspend RoutesDao.() -> T): T {
         return withContext(Dispatchers.IO) {
             _db.routes().block().also {
@@ -38,7 +52,9 @@ class Repository(private val _db: Database) {
     }
 
 
-
+    /**
+     * Send lists of [Route]. Sends new list when routes are updated.
+     */
     suspend fun getRouteList(): ReceiveChannel<List<Route>> {
         return whenRoutesUpdated {
             readRoutes {
