@@ -41,10 +41,6 @@ inline fun <reified T : Activity> Context.start(extras: Bundle? = null, flags: I
     start(T::class, extras, flags)
 }
 
-inline fun <reified T : Activity> Context.startInNewTask() {
-    start<T>(flags = Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
-}
-
 
 
 fun Activity.start(activity: KClass<out Activity>, requestCode: Int?, extras: Bundle? = null) {
@@ -57,7 +53,9 @@ inline fun <reified T : Activity> Activity.start(requestCode: Int, extras: Bundl
     start(T::class, requestCode, extras)
 
 
-
+/**
+ * Returns intent extra data with [name] and [T] type or `null` if it unavailable.
+ */
 inline fun <reified T> Activity.extra(name: String): T? = with(intent) {
     if (hasExtra(name)) {
         when (T::class) {
@@ -82,6 +80,12 @@ inline var ObservableInt.value: Int set(value) = set(value); get() = get()
 inline var ObservableFloat.value: Float set(value) = set(value); get() = get()
 inline var ObservableString.value: String? set(value) = set(value); get() = get()
 
+/**
+ * Wrapper around [ObservableInt] for convenient [View]'s visibility handling.
+ * @param invisible Will be used for when visibility will be set to `false`.
+ *                  Assumed to be either [View.INVISIBLE] or [View.GONE].
+ * @param visible Initial visibility value.
+ */
 class ObservableVisibility(val invisible: Int, visible: Boolean) : ObservableInt() {
 
     var value: Boolean
