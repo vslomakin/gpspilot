@@ -13,7 +13,9 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.sqrt
 
-
+/**
+ * Shortcut for `File(this, child)`.
+ */
 fun File.append(child: String): File = File(this, child)
 
 inline infix fun Exception.logE(message: () -> String) = e(this, message)
@@ -32,6 +34,10 @@ fun Long.secToMs(): Long = this *  1000L
 fun Double.metersToKm(): Double = this / 1000.0
 
 
+/**
+ * Wrapper around any value that track whether this value initialized or not without reflection.
+ * Implementation isn't thread safe.
+ */
 class LateinitValue<T> {
     var isInitialized: Boolean = false
         private set
@@ -58,11 +64,45 @@ class LateinitValue<T> {
     }
 }
 
+/**
+ * Call [action] with values from [value1] and [value2] if all values initialized.
+ */
+inline fun <T1, T2> ifAllInitialized(
+    value1: LateinitValue<T1>,
+    value2: LateinitValue<T2>,
+    action: (T1, T2) -> Unit
+) {
+    value1.ifInitialized { v1 ->
+        value2.ifInitialized { v2 ->
+            action(v1, v2)
+        }
+    }
+}
+
+/**
+ * Call [action] with values from [value1], [value2] and [value3] if all values initialized.
+ */
+inline fun <T1, T2, T3> ifAllInitialized(
+    value1: LateinitValue<T1>,
+    value2: LateinitValue<T2>,
+    value3: LateinitValue<T3>,
+    action: (T1, T2, T3) -> Unit
+) {
+    value1.ifInitialized { v1 ->
+        value2.ifInitialized { v2 ->
+            value3.ifInitialized { v3 ->
+                action(v1, v2, v3)
+            }
+        }
+    }
+}
+
 
 /**
  * Helper property to call after `when` which doesn't assumed to return result,
  * but it needed to compiler check that this `when` is exhaustive.
  */
+@Suppress("unused")
 inline val Any.exhaustive get() = Unit
 
 
@@ -111,37 +151,10 @@ inline fun <T, R : Comparable<R>> Iterable<T>.minPositionBy(selector: (T) -> R):
 
 inline val List<*>.lastPosition: Int get() = size - 1
 
-fun <T> List<T>.indexOrNull(item: T): Int? = indexOf(item).takeIf { it >= 0 }
 
-
-inline fun <T1, T2> ifAllInitialized(
-    value1: LateinitValue<T1>,
-    value2: LateinitValue<T2>,
-    action: (T1, T2) -> Unit
-) {
-    value1.ifInitialized { v1 ->
-        value2.ifInitialized { v2 ->
-            action(v1, v2)
-        }
-    }
-}
-
-inline fun <T1, T2, T3> ifAllInitialized(
-    value1: LateinitValue<T1>,
-    value2: LateinitValue<T2>,
-    value3: LateinitValue<T3>,
-    action: (T1, T2, T3) -> Unit
-) {
-    value1.ifInitialized { v1 ->
-        value2.ifInitialized { v2 ->
-            value3.ifInitialized { v3 ->
-                action(v1, v2, v3)
-            }
-        }
-    }
-}
-
-
+/**
+ * Returns list containing elements on [positions] from current list.
+ */
 fun <T> List<T>.getElements(positions: List<Int>): List<T> {
     return positions.map { get(it) }
 }
@@ -161,8 +174,15 @@ infix fun IntRange.notExceed(another: IntRange): Boolean = !(this exceed another
 
 fun IntRange.skip(count: Int): IntRange = (first + count)..last
 
+/**
+ * Shortcut for `SimpleDataFormat(this, Locale.getDefault())`.
+ */
 fun String.formatter() = SimpleDateFormat(this, Locale.getDefault())
 
+/**
+ * Calls original [SimpleDateFormat.parse].
+ * Instead of throwing [ParseException] `null` will be returned.
+ */
 fun SimpleDateFormat.parseOrNull(text: String): Date? {
     return try {
         parse(text)
@@ -172,7 +192,13 @@ fun SimpleDateFormat.parseOrNull(text: String): Date? {
     }
 }
 
+/**
+ * Parsing date from current string with [SimpleDateFormat].
+ */
 fun String.parseDate(format: String): Date? = format.formatter().parseOrNull(this)
 
+/**
+ * Formatting current date with [SimpleDateFormat].
+ */
 fun Date.format(format: String): String = format.formatter().format(this)
 
