@@ -225,6 +225,11 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        vm.setStarted(true)
+    }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -237,6 +242,11 @@ class MapActivity : AppCompatActivity(), CoroutineScope {
     private fun onMarkerClick(marker: Marker): Boolean {
         marker.wayPointNumber?.let(vm::onClickMarker)
         return true
+    }
+
+    override fun onStop() {
+        vm.setStarted(false)
+        super.onStop()
     }
 }
 
@@ -531,8 +541,10 @@ class MapActivityVM(
 
 
 
-    private val permissionResults = BroadcastChannel<List<PermissionResult>>(1)
+    private val isStarted = BroadcastChannel<Boolean>(Channel.CONFLATED)
+    fun setStarted(started: Boolean) = isStarted.offer(started)
 
+    private val permissionResults = BroadcastChannel<List<PermissionResult>>(1)
     fun onPermissionResult(results: List<PermissionResult>) = permissionResults.offer(results)
 
     private val _locations = BroadcastChannel<Location>(Channel.CONFLATED)
@@ -584,15 +596,19 @@ class MapActivityVM(
         // Broadcast locations
         launch(Dispatchers.Main) {
             permissionGranted.join()
-            // TODO: deactivate by stop
-            val channel = locationProviderClient.locations {
-                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-                interval = 500L
-                fastestInterval = 50L
-            }
-            channel.consumeEach { location ->
-                location?.let { _locations.send(it) }
-                locationIsAccurate.send(location.isAccurate)
+            isStarted.openSubscription().consumeSeparately { isStarted ->
+                if (isStarted) {
+                    i { "Requesting location updates." }
+                    val channel = locationProviderClient.locations {
+                        priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+                        interval = 500L
+                        fastestInterval = 50L
+                    }
+                    channel.consumeEach { location ->
+                        location?.let { _locations.send(it) }
+                        locationIsAccurate.send(location.isAccurate)
+                    }
+                }
             }
         }
 
