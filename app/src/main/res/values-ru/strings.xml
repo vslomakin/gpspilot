@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="arriving">Прибытие:</string>
+    <string name="average">Средняя:</string>
+    <string name="can_not_parse_route">Невозможно прочитать файл</string>
+    <string name="created">Дата создания</string>
+    <string name="current">Текущая:</string>
+    <string name="distance">Расстояние:</string>
+    <string name="error_occurred">Произошла ошибка</string>
+    <string name="error_occurred_during_file_saving">Произошла ошибка при сохранении файла</string>
+    <string name="km">%1$d км</string>
+    <string name="km_template">%.1f км</string>
+    <string name="kmPerHour">км/ч</string>
+    <string name="length">Протяженность</string>
+    <string name="location_permission_denied">Запрос на резрешение местоположения отвергнут</string>
+    <string name="name">Название</string>
+    <string name="no_routes">Нет маршрутов</string>
+    <string name="remaining">Осталось</string>
+    <string name="show_entire_track">Показать весь трек</string>
+    <string name="speed">Скорость</string>
+    <string name="time_template">%d ч %d мин</string>
+</resources>

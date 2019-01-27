@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">GPS Pilot</string>
+    <string name="app_name" translatable="false">GPS Pilot</string>
     <string name="error_occurred">Error occurred</string>
     <string name="can_not_parse_route">Can\'t parse route</string>
     <string name="location_permission_denied">Location permission denied</string>
