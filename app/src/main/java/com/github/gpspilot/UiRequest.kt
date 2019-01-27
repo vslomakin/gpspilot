@@ -21,11 +21,11 @@ import kotlinx.coroutines.launch
 import kotlin.reflect.KClass
 
 
+/**
+ * Abstraction to request some view actions from viewmodel.
+ */
 sealed class UiRequest {
 
-    /**
-     * Toast abstraction to construct toasts outside of view.
-     */
     data class Toast(@StringRes val text: Int, val length: Length) : UiRequest() {
         enum class Length(val value: Int) {
             SHORT(android.widget.Toast.LENGTH_SHORT),
@@ -33,9 +33,6 @@ sealed class UiRequest {
         }
     }
 
-    /**
-     * Dialog abstraction to construct dialogs outside of view.
-     */
     data class Dialog(
         @StringRes val text: Int,
         @StringRes val positiveBtn: Int,
@@ -125,8 +122,16 @@ private fun Activity.requestPermission(permission: String) {
     )
 }
 
+
+/**
+ * Convenient holder for permission result.
+ */
 data class PermissionResult(val permission: String, val granted: Boolean)
 
+/**
+ * Creates list of [PermissionResult] for further iteration.
+ * Assumed to be called from [Activity.onRequestPermissionsResult].
+ */
 fun permissionResults(permissions: Array<out String>, granted: IntArray): List<PermissionResult> {
     return List(permissions.size) { i ->
         PermissionResult(
