@@ -31,6 +31,10 @@
                 android:name="com.google.android.geo.API_KEY"
                 android:value="${googleMapKey}" />
 
+        <meta-data
+            android:name="io.fabric.ApiKey"
+            android:value="${crashlyticsKey}" />
+
         <uses-library
                 android:name="org.apache.http.legacy"
                 android:required="false">

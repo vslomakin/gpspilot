@@ -393,7 +393,7 @@ class MapActivityVM(
             if (route == null || route.track.isEmpty()) {
                 uiReq.send(UiRequest.Toast(R.string.can_not_parse_route, Length.LONG))
                 uiReq.send(UiRequest.FinishActivity)
-                // TODO: send Crashlytics error
+                e { "Broken route came to map screen!" }
             }
         }
 

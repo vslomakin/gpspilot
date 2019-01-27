@@ -2,6 +2,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
+apply plugin: 'io.fabric'
 
 def keysPropertiesFile = rootProject.file("keys.properties")
 def keys = new Properties()
@@ -20,7 +21,10 @@ android {
 
         setProperty("archivesBaseName", "GPSPilot-$versionName")
 
-        manifestPlaceholders = [googleMapKey:keys.google_map]
+        manifestPlaceholders = [
+                googleMapKey:keys.google_map,
+                crashlyticsKey:keys.crashlytics_key
+        ]
     }
 
     signingConfigs {
@@ -69,6 +73,10 @@ dependencies {
     implementation 'com.google.maps.android:android-maps-utils:0.5'
 
     implementation 'androidx.core:core-ktx:1.0.1'
+
+    implementation('com.crashlytics.sdk.android:crashlytics:2.9.8@aar') {
+        transitive = true
+    }
 
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'androidx.test:runner:1.1.0'
