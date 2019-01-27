@@ -166,7 +166,7 @@ fun <T> ReceiveChannel<T>.startWith(
 
 
 /**
- * [Deferred] that never completes. Userfull when it needed to suspend coroutine forever.
+ * [Deferred] that never completes. Useful when it needed to suspend coroutine forever.
  */
 val infiniteDeferred: Deferred<Nothing> by lazy { CompletableDeferred<Nothing>() }
 
