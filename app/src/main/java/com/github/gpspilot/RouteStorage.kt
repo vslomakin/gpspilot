@@ -16,6 +16,11 @@ fun Context.saveRoute(uri: Uri): File? {
 }
 
 
+/**
+ * Creates empty route [File] and returns it for further operations.
+ * If error occurred during route creation - `null` we be returned.
+ * If route folder isn't exist - new one will be created.
+ */
 private fun Context.createNewFile(time: Date): File? {
     val dir = routeFolder
     if (dir?.mkdirs() == true) i { "Route dir created." }
