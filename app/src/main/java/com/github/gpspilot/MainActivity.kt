@@ -94,9 +94,15 @@ class MainActivityVM(
     private val uiReq = BroadcastChannel<UiRequest>(1)
     fun uiRequests() = uiReq.openSubscription()
 
+    /**
+     * Contains lists of available routes to show.
+     */
     private val routes = BroadcastChannel<List<RouteItem>>(Channel.CONFLATED)
     fun routes() = routes.openSubscription()
 
+    /**
+     * Contains requests to open new route file.
+     */
     private val openFileRequests = BroadcastChannel<Unit>(1)
     fun openFileRequests() = openFileRequests.openSubscription()
 
@@ -109,6 +115,7 @@ class MainActivityVM(
     fun run() = launch.complete()
 
     init {
+        // Show current routes
         launch {
             launch.join()
             repo.getRouteList().consumeEach { routeList ->
@@ -160,6 +167,9 @@ class MainActivityVM(
         uiReq.offer(req)
     }
 
+    /**
+     * View model for route item in the list.
+     */
     data class RouteItem(
         override val id: Long,
         val date: String,
