@@ -125,7 +125,7 @@ fun List<LatLng>.distance(range: IntRange = indices): Double {
     } else {
         var length = 0.0
 
-        val prev = first()
+        val prev = this[range.first]
         var prevLat = Math.toRadians(prev.latitude)
         var prevLng = Math.toRadians(prev.longitude)
         for (i in range.skip(1)) {
