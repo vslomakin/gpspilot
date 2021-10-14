@@ -6,4 +6,5 @@
     <color name="mapPanelText">#FEFEFE</color>
     <color name="mapPanelSecondaryText">#EB9713</color>
     <color name="bg_map_panel">#b4483232</color>
+    <color name="colorTrashed">#9E2B2B</color>
 </resources>

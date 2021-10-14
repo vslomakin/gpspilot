@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
@@ -93,3 +94,104 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
         freeCompilerArgs = ["-Xuse-experimental=kotlin.Experimental"]
     }
 }
+=======
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
+apply plugin: 'kotlin-kapt'
+//apply plugin: 'io.fabric'
+
+//def keysPropertiesFile = rootProject.file("keys.properties")
+//def keys = new Properties()
+//keys.load(new FileInputStream(keysPropertiesFile))
+
+android {
+    compileSdkVersion 30
+
+    defaultConfig {
+        applicationId "com.github.gpspilot"
+        minSdkVersion 21
+        targetSdkVersion 30
+        versionCode 1
+        versionName "0.2.2"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        setProperty("archivesBaseName", "GPSPilot-$versionName")
+
+//        manifestPlaceholders = [
+//                googleMapKey:keys.google_map,
+//                crashlyticsKey:keys.crashlytics_key
+//        ]
+    }
+
+//    signingConfigs {
+//        release {
+//            storeFile file(keys.keystore_path)
+//            storePassword keys.keystore_store_password
+//            keyAlias keys.keystore_key_alias
+//            keyPassword keys.keystore_key_password
+//        }
+//    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            //signingConfig signingConfigs.release
+        }
+    }
+
+    dataBinding { enabled = true }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$versions.kotlin"
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.0.1'
+
+    implementation 'com.jakewharton.timber:timber:4.7.1'
+    implementation 'com.github.PaulWoitaschek:Slimber:1.0.7'
+
+    implementation 'androidx.appcompat:appcompat:1.0.2'
+    implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
+    implementation 'androidx.recyclerview:recyclerview:1.0.0'
+    implementation 'com.google.android.material:material:1.0.0'
+
+    implementation "androidx.lifecycle:lifecycle-extensions:$versions.lifecycle"
+
+    implementation "androidx.room:room-runtime:$versions.room"
+    kapt "androidx.room:room-compiler:$versions.room"
+
+    implementation "org.koin:koin-android:$versions.koin"
+    implementation "org.koin:koin-android-viewmodel:$versions.koin"
+
+    implementation "com.google.android.gms:play-services-maps:16.0.0"
+    implementation "com.google.android.gms:play-services-location:16.0.0"
+    implementation 'com.google.maps.android:android-maps-utils:0.5'
+
+    implementation 'androidx.core:core-ktx:1.0.1'
+
+//    implementation('com.crashlytics.sdk.android:crashlytics:2.9.8@aar') {
+//        transitive = true
+//    }
+
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'androidx.test:runner:1.1.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.0'
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+    kotlinOptions {
+        /**
+         * Project hardly relies on coroutines channel feature, which is experimental.
+         * JetBrains promises that in cases of breaking changing in the feature it will be
+         * only small API changes, so because of this we allow yourself to use experiential functionality.
+         */
+        freeCompilerArgs = ["-Xuse-experimental=kotlin.Experimental"]
+    }
+}
+>>>>>>> Stashed changes

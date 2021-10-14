@@ -19,4 +19,5 @@
     <string name="show_entire_track">Показать весь трек</string>
     <string name="speed">Скорость</string>
     <string name="time_template">%d ч %d мин</string>
+    <string name="add">Добавить</string>
 </resources>

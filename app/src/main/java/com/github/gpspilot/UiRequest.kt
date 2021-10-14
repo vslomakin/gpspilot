@@ -51,7 +51,7 @@ sealed class UiRequest {
 
 
     data class StartActionMode(
-        @StringRes val title: String? = null,
+        val title: String? = null,
         val onClose: (() -> Unit)? = null
     ) : UiRequest()
 

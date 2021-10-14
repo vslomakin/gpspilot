@@ -35,7 +35,7 @@ private inline val Context.routeFolder: File?
 
 private fun Context.copyUriToFile(uri: Uri, file: File): Boolean {
     return try {
-        contentResolver.openInputStream(uri).use { input: InputStream ->
+        contentResolver.openInputStream(uri)?.use { input: InputStream ->
             file.apply {
                 createNewFile()
                 outputStream().use { output ->

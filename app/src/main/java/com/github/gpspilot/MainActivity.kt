@@ -3,6 +3,7 @@ package com.github.gpspilot
 import android.app.Activity
 import android.app.Application
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
@@ -130,7 +131,7 @@ class MainActivityVM(
 
     private val dataFormatter = "dd.MM.yyyy".formatter()
 
-    private fun Route.toVM() = MainActivityVM.RouteItem(
+    private fun Route.toVM() = RouteItem(
         id = id,
         date = dataFormatter.format(created),
         length = context.getString(R.string.km, length / 1000),
