@@ -76,7 +76,7 @@
 
         <meta-data
                 android:name="com.google.android.geo.API_KEY"
-                android:value="AIzaSyC0kat2rDMcf6Jd_WLXbsUby2zKpli5kcI" />
+                android:value="YOUR_API_KEY" />
 
 <!--        <meta-data-->
 <!--            android:name="io.fabric.ApiKey"-->
