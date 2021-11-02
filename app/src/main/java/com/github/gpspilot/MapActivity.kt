@@ -756,7 +756,6 @@ private inline fun Context.makeIcon(text: String, setup: IconGenerator.() -> Uni
 }
 
 
-
 private inline val Location?.isAccurate: Boolean
     get() = this?.run { accuracy < 10f } == true
 
@@ -764,17 +763,14 @@ private inline val Location?.isAccurate: Boolean
  * Calculates projections of [Gpx.wayPoints] to [Gpx.track].
  */
 private suspend fun Gpx.getWayPointsProjections(): List<Int> = withContext(Dispatchers.Default) {
-    var startPosition = 0 // Position from which traverse track list
+    val startPosition = 0 // Position from which traverse track list
     val trackSeq = track.asSequence()
     wayPoints.mapNotNull { wp ->
-        // Firstly we don't need to traverse points before projection of previous waypoint
+        // We need to traverse all points
         val seq = trackSeq.drop(startPosition)
-        // Then find nearest point from remaining sequence
+        // Then find nearest point from sequence
         val nearest = seq.findNearestPosition(wp.location)?.let { it + startPosition }
-        nearest?.let {
-            startPosition = it // Assign found position to start traverse from here for next waypoint
-            it
-        }
+        nearest
     }
 }
 

@@ -1,26 +1,16 @@
-To build the project it needed to place `keys.property` file in the project root directory with the following content:
-
-```properties
-# Kip this file outside of repository
-
-google_map=YOUR-GOOGLE-MAP-API-KEY
-
-# APK signing
-keystore_path=PATH-TO-KEYSTORE-RELATIVE-TO-THE-APP-FOLDER
-keystore_store_password=KEYSTORE-ITSELF-PASSWORD
-keystore_key_alias=KEY-ALIAS-NAME
-keystore_key_password=KEYSTORE-KEY-PASSWORD
-
-crashlytics_key=YOUR-CRASHLYTICS-API
-```
+Позволяет загружать треки в формате GPX и следовать по выбранному треку. Треки можно создавать например в alltrails.com Основная идея приложения - планирование и следование по водному маршруту. При включении, если текущие координаты находятся ближе 100м от трека вычисляется текущее положение относительно трека. Путем длительного нажатия на любую точку трека можно получить расстояние до выбранной точки от текущего положения, расчетное время на преодоление этого расстояния с вычисленной средней скоростью и время прибытия в точку. Длительным нажатием на окне скорости происходит сброс средней скорости.
+        
+app/src/main/AndroidManifest.xml
+        
+        <meta-data
+                android:name="com.google.android.geo.API_KEY"
+                android:value="YOUR_API_KEY" />
 
 
 # License
 
 ```
 MIT License
-
-Copyright (c) 2019 Vasily Lomakin
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

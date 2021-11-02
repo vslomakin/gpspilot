@@ -104,7 +104,7 @@ class Repository(
                 else w { "Route ${route.file.path} hasn't been deleted!" }
             }
         } else {
-            i { "There's no unnecessary routes4." }
+            i { "There's no unnecessary routes." }
         }
     }
 }

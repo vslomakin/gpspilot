@@ -8,7 +8,6 @@ import java.io.File
 import java.util.*
 import javax.xml.parsers.DocumentBuilder
 
-
 data class Gpx(
     val name: String,
     val wayPoints: List<WayPoint>,
@@ -30,18 +29,36 @@ suspend fun DocumentBuilder.parseGps(file: File): Gpx? = withContext(Dispatchers
     }
     val root = document?.documentElement
 
-    val name = root?.name()
+    val name = root?.name()?: "Name" // TODO - в GPX может не быть, без заглушки не импортирует и не выводит трек - надо генерировать автоматически
 
-    val wayPointNodes = root?.getElementsByTagName("wpt")?.nodes()
-    val wayPoints = wayPointNodes?.mapNodes { it.wayPoint() }
+    val wayPointNodes = root?.getElementsByTagName("wpt")?.nodes() // TODO - может не быть в GPX
+    var wayPoints = wayPointNodes?.mapNodes { it.wayPoint() }             // TODO - как вариант брать первую и последнюю точку маршрута (Start/Finish)
 
-    val trackNodes = root?.getElementsByTagName("trkpt")?.nodes()
-    val trackPoints = trackNodes?.mapNodes { it.latLng() }
+    val trackNodes = root?.getElementsByTagName("trkpt")?.nodes() // TODO - если в массиве пусто, то можно выходить, трек бесполезен!
+    val trackPoints = trackNodes?.mapNodes { it.latLng() } // TODO - если в массиве пусто, то можно выходить, трек бесполезен!
 
-    val createdTime = trackNodes?.lastOrNull()?.childByName("time")?.textContent
-    val created = createdTime?.parseDate("yyyy-MM-dd'T'HH:mm:ss")
+    if (wayPoints?.count()==0 && trackPoints!=null && trackPoints.isNotEmpty()) // TODO - Передалеть, чтобы всегда добавлялиссь точки старт и финиш, даже если уже есть wayPoints
+    {
+        val latLonStart = trackPoints[0]
+        val latLonFinish = trackPoints.last()
 
-    if (name != null && wayPoints != null && trackPoints != null && created != null && trackPoints.isNotEmpty()) {
+        val wayPointStart = Gpx.WayPoint(
+            name = "Start",
+            location = latLonStart
+        )
+
+        val wayPointFinish = Gpx.WayPoint(
+            name = "Finish",
+            location = latLonFinish
+        )
+
+        wayPoints = mutableListOf(wayPointStart,wayPointFinish)
+    }
+
+    val createdTime = trackNodes?.lastOrNull()?.childByName("time")?.textContent ?: "2021-01-01T00:01:01Z" // TODO - Временная заглушка, если в GPX у <trkpt> нет <time> то программа не импортирует файл, надо поставлять текущее время
+    val created = createdTime.parseDate("yyyy-MM-dd'T'HH:mm:ss")
+
+    if (wayPoints != null && trackPoints != null &&created!=null && trackPoints.isNotEmpty()) {
         Gpx(name, wayPoints, trackPoints, created)
     } else {
         null
@@ -81,15 +98,6 @@ private fun Node.latLng(): LatLng? {
     return if (lat != null && lon != null) {
         LatLng(lat, lon)
     } else null
-}
-
-private fun <T : Any> Element.elementsByName(name: String, map: (Node) -> T?): List<T>? {
-    val node = getElementsByTagName(name)
-    val resList = node.nodes().mapNotNull { map(it) }.toList()
-
-    // If sizes of source and result lists aren't equal -
-    // it means some of node hasn't been properly parsed, just return null
-    return resList.takeIf { it.size == node.length }
 }
 
 /**

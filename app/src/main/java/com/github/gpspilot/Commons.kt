@@ -5,12 +5,13 @@ import android.content.pm.PackageManager
 import android.graphics.Point
 import androidx.core.content.ContextCompat
 import e
-import w
+//import w
 import java.io.File
-import java.lang.Math.pow
+//import java.lang.Math.pow
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 /**
@@ -19,7 +20,7 @@ import kotlin.math.sqrt
 fun File.append(child: String): File = File(this, child)
 
 inline infix fun Exception.logE(message: () -> String) = e(this, message)
-inline infix fun Exception.logW(message: () -> String) = w(this, message)
+//inline infix fun Exception.logW(message: () -> String) = w(this, message)
 
 fun Context.isPermissionGranted(permission: String): Boolean {
     val state = ContextCompat.checkSelfPermission(this, permission)
@@ -160,8 +161,8 @@ fun <T> List<T>.getElements(positions: List<Int>): List<T> {
 }
 
 infix fun Point.distanceTo(another: Point): Double {
-    val xDelta = pow(another.x.toDouble() - x.toDouble(), 2.0)
-    val yDelta = pow(another.y.toDouble() - y.toDouble(), 2.0)
+    val xDelta = (another.x.toDouble() - x.toDouble()).pow(2.0)
+    val yDelta = (another.y.toDouble() - y.toDouble()).pow(2.0)
     return sqrt(xDelta + yDelta)
 }
 

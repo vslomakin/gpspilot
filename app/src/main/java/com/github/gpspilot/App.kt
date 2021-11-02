@@ -1,16 +1,26 @@
 package com.github.gpspilot
 
 import android.app.Application
+<<<<<<< Updated upstream
 import com.crashlytics.android.Crashlytics
 import com.crashlytics.android.core.CrashlyticsCore
 import io.fabric.sdk.android.Fabric
+=======
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+//import com.crashlytics.android.Crashlytics
+//import com.crashlytics.android.core.CrashlyticsCore
+//import io.fabric.sdk.android.Fabric
+>>>>>>> Stashed changes
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.ObsoleteCoroutinesApi
 import org.koin.android.ext.android.get
 import timber.log.Timber
 
 
 class App : Application() {
 
+    @ObsoleteCoroutinesApi
+    @ExperimentalCoroutinesApi
     override fun onCreate() {
         super.onCreate()
 

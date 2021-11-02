@@ -129,12 +129,28 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="16dp"
-            android:src="@drawable/ic_add_black_24dp"
             android:clickable="true"
+            android:contentDescription="@string/add"
             android:focusable="true"
             android:onClick="@{() -> vm.onClickAdd()}"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"/>
+            android:src="@drawable/ic_add_black_24dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/trashBtn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="16dp"
+            android:clickable="true"
+            android:contentDescription="@string/add"
+            android:focusable="true"
+            android:onClick="@{() -> vm.onClickAdd()}"
+            android:src="@drawable/ic_trash_icon"
+            android:visibility="invisible"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>
